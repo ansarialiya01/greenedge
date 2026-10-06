@@ -10,5 +10,6 @@ RUN npm ci --omit=dev
 RUN python3 -m venv /venv && /venv/bin/pip install --no-cache-dir flask flask-cors
 
 COPY . .
+RUN ls -la /app /app/database
 
 CMD ["sh", "-c", "/venv/bin/python python/voice_assistance.py & node server.js"]
