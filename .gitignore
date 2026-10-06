@@ -1,0 +1,10 @@
+node_modules
+.env
+certs
+*.pem
+*.pt
+.yolov8s.pt.*
+tempCodeRunnerFile.js
+VisionGuide
+__pycache__
+*.pyc

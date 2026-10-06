@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile & Settings</title>
+
+    <!-- Connect CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!-- Icons -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body class ="profile-page">
+
+    <div class="phone">
+
+        <!-- Header -->
+        <div class="header">
+            <i class="fa-solid fa-arrow-left back-icon"></i>
+            <h3>Profile</h3>
+        </div>
+
+        <!-- Profile -->
+        <div class="profile-card">
+            <div class="profile-img">
+                <i class="fa-solid fa-user"></i>
+            </div>
+
+            <div class="profile-info">
+                <h4>User Name</h4>
+                <p>user@example.com</p>
+            </div>
+
+            <i class="fa-solid fa-chevron-right arrow"></i>
+        </div>
+
+        <!-- Account -->
+        <h4 class="profile-section-title">Account</h4>
+
+        <div class="settings-box">
+
+            <div class="setting">
+                <div>
+                    <i class="fa-regular fa-user"></i>
+                    <span>Personal Information</span>
+                </div>
+                <i class="fa-solid fa-chevron-right"></i>
+            </div>
+
+            <div class="setting">
+                <div>
+                    <i class="fa-regular fa-address-book"></i>
+                    <span>Emergency Contact</span>
+                </div>
+                <i class="fa-solid fa-chevron-right"></i>
+            </div>
+
+        </div>
+
+        <!-- Preferences -->
+        <h4 class="profile-section-title">Preferences</h4>
+
+        <div class="settings-box">
+
+            <div class="setting">
+                <div>
+                    <i class="fa-solid fa-volume-high"></i>
+                    <span>Voice Settings</span>
+                </div>
+                <i class="fa-solid fa-chevron-right"></i>
+            </div>
+
+            <div class="setting">
+                <div>
+                    <i class="fa-solid fa-globe"></i>
+                    <span>Language</span>
+                </div>
+                <i class="fa-solid fa-chevron-right"></i>
+            </div>
+
+            <!-- <a href="/setting" class="setting">
+                <i class="fa-solid fa-gear"></i>
+                    <span>App Settings</span>
+                <i class="fa-solid fa-chevron-right"></i>
+            </a> -->
+
+            <a href="/setting" class="setting">
+                <div>
+                    <i class="fa-solid fa-gear"></i>
+                    <span>App Settings</span>
+                </div>
+                <i class="fa-solid fa-chevron-right"></i>
+            </a>
+
+        </div>
+
+        <!-- Logout -->
+        <button class="logout">
+            <i class="fa-solid fa-right-from-bracket"></i>
+            Logout
+        </button>
+
+    </div>
+    <script src="/js/common.js"></script>
+
+</body>
+</html>

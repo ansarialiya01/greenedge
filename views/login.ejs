@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - GreenEdge AI</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<% const isKnown = (typeof knownUser !== 'undefined' && knownUser); %>
+
+<body class ="home-page" data-login-mode="<%= isKnown ? 'known' : 'new' %>" data-user-name="<%= isKnown ? knownUser.name : '' %>">
+
+<div class="login-page">
+
+    <div class="login-card">
+
+        <a href="/" class="back-btn">←</a>
+
+        <div class="login-heading">
+            <% if (isKnown) { %>
+                <h1>Welcome back, <%= knownUser.name %>!</h1>
+                <p>Continue or create a new account</p>
+            <% } else { %>
+                <h1>Welcome!</h1>
+                <p>Tell us your name and 2 emergency contacts</p>
+            <% } %>
+        </div>
+
+        <p style="text-align:center; font-size:13px; margin:4px 0;">
+            🎤 Tap anywhere once to start the voice assistant
+        </p>
+
+        <div class="login-image">
+            <img src="/images/login-icon.png" alt="Login">
+        </div>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="login-error">
+                <%= error %>
+            </div>
+        <% } %>
+
+        <form action="/login" method="POST" id="loginForm">
+
+            <!-- 1 = purane device par bhi bilkul naya account banao -->
+            <input type="hidden" name="new_account" id="newAccountInput" value="">
+
+            <% if (isKnown) { %>
+                <button type="submit" class="login-btn" id="continueBtn">
+                    CONTINUE
+                </button>
+
+                <!-- CHANGE NUMBER button hata diya: ye ab Settings page mein hai -->
+
+                <button type="button" class="login-btn" id="newAccountBtn" style="margin-top:10px;">
+                    NEW ACCOUNT
+                </button>
+
+                <button type="button" class="login-btn" id="cancelBtn" style="margin-top:10px;" hidden>
+                    CANCEL
+                </button>
+            <% } %>
+
+            <!-- Naam: naye user ke liye compulsory -->
+            <div id="nameBox" <%= isKnown ? 'hidden' : '' %>>
+                <div class="input-box">
+                    <span class="input-icon">👤</span>
+                    <input
+                        type="text"
+                        name="name"
+                        placeholder="Your Name"
+                        maxlength="60"
+                        autocomplete="name"
+                        <%= isKnown ? '' : 'required' %>
+                    >
+                </div>
+            </div>
+
+            <!-- Emergency contacts: naye account ke liye compulsory -->
+            <div id="contactFields" <%= isKnown ? 'hidden' : '' %>>
+
+                <div class="input-box">
+                    <span class="input-icon">👪</span>
+                    <input type="text" name="contact1_name" placeholder="Emergency Contact 1 Name" <%= isKnown ? '' : 'required' %>>
+                </div>
+
+                <div class="input-box">
+                    <span class="input-icon">📞</span>
+                    <input type="tel" name="contact1_phone" placeholder="Contact 1 Phone Number" <%= isKnown ? '' : 'required' %>>
+                </div>
+
+                <div class="input-box">
+                    <span class="input-icon">👪</span>
+                    <input type="text" name="contact2_name" placeholder="Emergency Contact 2 Name" <%= isKnown ? '' : 'required' %>>
+                </div>
+
+                <div class="input-box">
+                    <span class="input-icon">📞</span>
+                    <input type="tel" name="contact2_phone" placeholder="Contact 2 Phone Number" <%= isKnown ? '' : 'required' %>>
+                </div>
+
+                <% if (isKnown) { %>
+                    <button type="submit" class="login-btn" id="saveBtn">
+                        SAVE & CONTINUE
+                    </button>
+                <% } %>
+
+            </div>
+
+            <% if (!isKnown) { %>
+                <button type="submit" class="login-btn">
+                    CONTINUE
+                </button>
+            <% } %>
+
+        </form>
+
+        <a href="/home"></a>
+
+    </div>
+
+</div>
+
+<% if (isKnown) { %>
+<script>
+(function () {
+
+    const nameBox = document.getElementById("nameBox");
+    const contactFields = document.getElementById("contactFields");
+    const newAccountInput = document.getElementById("newAccountInput");
+    const continueBtn = document.getElementById("continueBtn");
+    const newBtn = document.getElementById("newAccountBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+
+    const nameInput = nameBox.querySelector("input");
+    const contactInputs = contactFields.querySelectorAll("input");
+
+    // mode: idle | new   ("change" mode hata diya)
+    function setMode(mode) {
+
+        const isNew = (mode === "new");
+
+        nameInput.value = "";
+        nameInput.required = isNew;
+
+        contactInputs.forEach(function (input) {
+            input.value = "";
+            input.required = isNew;
+        });
+
+        newAccountInput.value = isNew ? "1" : "";
+
+        nameBox.hidden = !isNew;
+        contactFields.hidden = !isNew;
+
+        continueBtn.hidden = isNew;
+        newBtn.hidden = isNew;
+        cancelBtn.hidden = !isNew;
+    }
+
+    newBtn.addEventListener("click", function () { setMode("new"); });
+    cancelBtn.addEventListener("click", function () { setMode("idle"); });
+
+    setMode("idle");
+
+})();
+</script>
+<% } %>
+
+<script src="/js/login.js"></script>
+<script src="/js/voice_assistance.js"></script>
+
+
+</body>
+</html>

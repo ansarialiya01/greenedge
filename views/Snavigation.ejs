@@ -1,0 +1,2402 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Smart Navigation</title>
+
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+
+        body {
+
+            margin: 0;
+
+            font-family: Arial, sans-serif;
+
+            background: #111;
+
+            color: #fff;
+
+            text-align: center;
+        }
+
+
+        h1 {
+
+            margin: 20px;
+        }
+
+
+        .camera-container {
+
+            position: relative;
+
+            width: 90%;
+
+            max-width: 800px;
+
+            margin: 0 auto;
+
+            overflow: hidden;
+
+            border-radius: 15px;
+
+            background: #000;
+
+            line-height: 0;
+        }
+
+
+        .camera {
+
+            width: 100%;
+
+            height: auto;
+
+            display: block;
+
+            border-radius: 15px;
+
+            background: #000;
+        }
+
+
+        .camera-overlay {
+
+            position: absolute;
+
+            top: 0;
+
+            left: 0;
+
+            width: 100%;
+
+            height: 100%;
+
+            border-radius: 15px;
+
+            pointer-events: none;
+
+            z-index: 5;
+        }
+
+
+        button {
+
+            margin-top: 15px;
+
+            padding: 14px 25px;
+
+            font-size: 18px;
+
+            border: 0;
+
+            border-radius: 10px;
+
+            cursor: pointer;
+        }
+
+
+        button:disabled {
+
+            opacity: 0.7;
+
+            cursor: not-allowed;
+        }
+
+
+        #cameraStatus {
+
+            margin-top: 10px;
+
+            font-size: 16px;
+        }
+
+
+        .navigation-info {
+
+            margin: 20px auto;
+
+            padding: 20px;
+
+            width: 85%;
+
+            max-width: 700px;
+
+            background: #222;
+
+            border-radius: 15px;
+        }
+
+
+        .closest {
+
+            font-size: 24px;
+
+            font-weight: bold;
+        }
+
+
+        .description {
+
+            font-size: 20px;
+
+            margin-top: 15px;
+        }
+
+
+        .secure-status {
+
+            margin-top: 8px;
+
+            font-size: 14px;
+        }
+
+
+        .voice-status {
+
+            margin-top: 10px;
+
+            font-size: 15px;
+
+            color: #00ff00;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <h1>Smart Navigation</h1>
+
+
+    <!-- =====================================================
+         CAMERA
+         ===================================================== -->
+
+    <div class="camera-container">
+
+        <video
+            id="mobileCamera"
+            autoplay
+            playsinline
+            muted
+            class="camera">
+        </video>
+
+
+        <canvas
+            id="detectionCanvas"
+            class="camera-overlay">
+        </canvas>
+
+    </div>
+
+
+    <!-- =====================================================
+         START CAMERA BUTTON
+         ===================================================== -->
+
+    <button
+        id="startCameraButton"
+        type="button">
+
+        📷 Start Camera
+
+    </button>
+
+
+    <!-- =====================================================
+         TEST VOICE BUTTON
+         ===================================================== -->
+
+    <button
+        id="testVoiceButton"
+        type="button">
+
+        🔊 Test Voice
+
+    </button>
+
+
+    <div id="cameraStatus">
+
+        Camera not started
+
+    </div>
+
+
+    <div
+        id="secureStatus"
+        class="secure-status">
+
+        Checking secure connection...
+
+    </div>
+
+
+    <div
+        id="voiceStatus"
+        class="voice-status">
+
+        🔊 Voice not tested
+
+    </div>
+
+
+    <!-- =====================================================
+         NAVIGATION INFORMATION
+         ===================================================== -->
+
+    <div class="navigation-info">
+
+
+        <div class="closest">
+
+            Closest Object:
+
+            <span id="objectName">
+
+                None
+
+            </span>
+
+        </div>
+
+
+        <div>
+
+            Distance:
+
+            <span id="distance">
+
+                0
+
+            </span>
+
+            m
+
+        </div>
+
+
+        <div>
+
+            Direction:
+
+            <span id="direction">
+
+                None
+
+            </span>
+
+        </div>
+
+
+        <div>
+
+            Path:
+
+            <span id="path">
+
+                PATH CLEAR
+
+            </span>
+
+        </div>
+
+
+        <div
+            class="description"
+            id="description">
+
+            No obstacle detected
+
+        </div>
+
+
+    </div>
+
+<script>
+
+/* =========================================================
+   SMART NAVIGATION
+   CAMERA + YOLO + MOBILE VOICE
+   ========================================================= */
+
+
+/* =========================================================
+   FLASK URL
+   ========================================================= */
+
+const FLASK_URL =
+    `${window.location.protocol}//${window.location.hostname}:5000`;
+
+console.log("Flask URL:", FLASK_URL);
+
+
+/* =========================================================
+   DOM ELEMENTS
+   ========================================================= */
+
+const video =
+    document.getElementById("mobileCamera");
+
+const overlay =
+    document.getElementById("detectionCanvas");
+
+const ctx =
+    overlay.getContext("2d");
+
+const startCameraButton =
+    document.getElementById("startCameraButton");
+
+const testVoiceButton =
+    document.getElementById("testVoiceButton");
+
+const cameraStatus =
+    document.getElementById("cameraStatus");
+
+const secureStatus =
+    document.getElementById("secureStatus");
+
+const voiceStatus =
+    document.getElementById("voiceStatus");
+
+const objectName =
+    document.getElementById("objectName");
+
+const distanceElement =
+    document.getElementById("distance");
+
+const directionElement =
+    document.getElementById("direction");
+
+const pathElement =
+    document.getElementById("path");
+
+const descriptionElement =
+    document.getElementById("description");
+
+
+/* =========================================================
+   HTTPS CHECK
+   ========================================================= */
+
+function checkSecureContext() {
+
+    console.log("Current URL:", window.location.href);
+    console.log("Secure Context:", window.isSecureContext);
+    console.log("MediaDevices:", navigator.mediaDevices);
+
+    if (window.isSecureContext) {
+
+        secureStatus.textContent =
+            "🔒 Secure HTTPS connection";
+
+        secureStatus.style.color =
+            "#00ff00";
+
+        return true;
+    }
+
+    secureStatus.textContent =
+        "🔓 HTTPS required for camera";
+
+    secureStatus.style.color =
+        "#ff4444";
+
+    return false;
+}
+
+
+/* =========================================================
+   CAMERA VARIABLES
+   ========================================================= */
+
+let mobileStream = null;
+
+let sendingFrame = false;
+
+let cameraProcessingStarted = false;
+
+
+/* =========================================================
+   FRAME CANVAS
+   ========================================================= */
+
+const frameCanvas =
+    document.createElement("canvas");
+
+const frameCtx =
+    frameCanvas.getContext("2d");
+
+
+/* =========================================================
+   SMOOTH YOLO BOX TRACKING
+   ========================================================= */
+
+let latestDetections = [];
+
+let smoothDetections = [];
+
+let lastDetectionTime = 0;
+
+const BOX_SMOOTHING = 0.18;
+
+const DISTANCE_SMOOTHING = 0.20;
+
+const KEEP_BOX_MS = 900;
+
+
+/* =========================================================
+   MOBILE SPEECH VARIABLES
+   ========================================================= */
+
+let speechUnlocked = false;
+
+let lastSpokenMessage = "";
+
+let lastSpokenTime = 0;
+
+let lastSpeechStartTime = 0;
+
+const SPEECH_REPEAT_BLOCK_MS = 2500;
+
+const MIN_SPEECH_INTERVAL_MS = 1800;
+
+
+/* =========================================================
+   SPEECH SUPPORT
+   ========================================================= */
+
+function speechSupported() {
+
+    if (!("speechSynthesis" in window)) {
+
+        console.error(
+            "❌ Speech Synthesis NOT supported"
+        );
+
+        if (voiceStatus) {
+
+            voiceStatus.textContent =
+                "❌ Speech not supported";
+
+            voiceStatus.style.color =
+                "#ff4444";
+        }
+
+        return false;
+    }
+
+    return true;
+}
+
+
+/* =========================================================
+   GET AVAILABLE MOBILE VOICE
+   ========================================================= */
+
+function getMobileVoice() {
+
+    if (!speechSupported()) {
+        return null;
+    }
+
+    const synth =
+        window.speechSynthesis;
+
+    const voices =
+        synth.getVoices();
+
+    console.log(
+        "Available mobile voices:",
+        voices
+    );
+
+    /*
+       First preference:
+       Indian English
+    */
+
+    let voice =
+        voices.find(v =>
+            v.lang &&
+            v.lang.toLowerCase() === "en-in"
+        );
+
+    /*
+       Second preference:
+       English
+    */
+
+    if (!voice) {
+
+        voice =
+            voices.find(v =>
+                v.lang &&
+                v.lang
+                    .toLowerCase()
+                    .startsWith("en")
+            );
+    }
+
+    return voice || null;
+}
+
+
+/* =========================================================
+   UNLOCK MOBILE SPEECH
+   IMPORTANT:
+   THIS MUST RUN DIRECTLY FROM USER TAP
+   ========================================================= */
+
+function unlockSpeech() {
+
+    if (!speechSupported()) {
+        return;
+    }
+
+    console.log(
+        "👆 USER TAP -> UNLOCKING MOBILE SPEECH"
+    );
+
+    const synth =
+        window.speechSynthesis;
+
+    /*
+       Clear previous speech
+    */
+
+    synth.cancel();
+
+    synth.resume();
+
+
+    /*
+       TEST MESSAGE
+    */
+
+    const utterance =
+        new SpeechSynthesisUtterance(
+            "Navigation voice enabled"
+        );
+
+
+    utterance.lang =
+        "en-IN";
+
+    utterance.rate =
+        0.9;
+
+    utterance.pitch =
+        1.0;
+
+    utterance.volume =
+        1.0;
+
+
+    /*
+       Select available voice
+    */
+
+    const voice =
+        getMobileVoice();
+
+    if (voice) {
+
+        utterance.voice =
+            voice;
+
+        console.log(
+            "Selected voice:",
+            voice.name,
+            voice.lang
+        );
+    }
+
+
+    utterance.onstart = () => {
+
+        speechUnlocked =
+            true;
+
+        console.log(
+            "🔊 MOBILE TEST VOICE STARTED"
+        );
+
+        if (voiceStatus) {
+
+            voiceStatus.textContent =
+                "🔊 Mobile voice working";
+
+            voiceStatus.style.color =
+                "#00ff00";
+        }
+    };
+
+
+    utterance.onend = () => {
+
+        speechUnlocked =
+            true;
+
+        console.log(
+            "🔊 MOBILE TEST VOICE FINISHED"
+        );
+    };
+
+
+    utterance.onerror = (event) => {
+
+        console.error(
+            "❌ MOBILE SPEECH ERROR:",
+            event.error
+        );
+
+        if (voiceStatus) {
+
+            voiceStatus.textContent =
+                "❌ Voice error: " +
+                event.error;
+
+            voiceStatus.style.color =
+                "#ff4444";
+        }
+    };
+
+
+    /*
+       VERY IMPORTANT:
+       Speak immediately.
+       No await.
+       No setTimeout.
+    */
+
+    synth.speak(
+        utterance
+    );
+}
+
+
+/* =========================================================
+   SPEAK NAVIGATION MESSAGE
+   ========================================================= */
+
+function speakOnMobile(message) {
+
+    if (!message) {
+        return;
+    }
+
+    message =
+        String(message).trim();
+
+    if (!message) {
+        return;
+    }
+
+
+    if (!speechSupported()) {
+        return;
+    }
+
+
+    const now =
+        Date.now();
+
+
+    /*
+       Same message repeat protection
+    */
+
+    if (
+        message === lastSpokenMessage &&
+        now - lastSpokenTime <
+            SPEECH_REPEAT_BLOCK_MS
+    ) {
+
+        console.log(
+            "⏭️ Duplicate speech skipped"
+        );
+
+        return;
+    }
+
+
+    /*
+       Global speech interval
+    */
+
+    if (
+        now - lastSpeechStartTime <
+        MIN_SPEECH_INTERVAL_MS
+    ) {
+
+        console.log(
+            "⏭️ Speech interval limited"
+        );
+
+        return;
+    }
+
+
+    lastSpokenMessage =
+        message;
+
+    lastSpokenTime =
+        now;
+
+    lastSpeechStartTime =
+        now;
+
+
+    console.log(
+        "📱📢 MOBILE SPEAK:",
+        message
+    );
+
+
+    const synth =
+        window.speechSynthesis;
+
+
+    /*
+       Resume browser speech engine
+    */
+
+    synth.resume();
+
+
+    /*
+       Stop previous navigation speech
+    */
+
+    synth.cancel();
+
+
+    /*
+       Create speech
+    */
+
+    const utterance =
+        new SpeechSynthesisUtterance(
+            message
+        );
+
+
+    utterance.lang =
+        "en-IN";
+
+    utterance.rate =
+        0.85;
+
+    utterance.pitch =
+        1.0;
+
+    utterance.volume =
+        1.0;
+
+
+    /*
+       Select voice
+    */
+
+    const voice =
+        getMobileVoice();
+
+    if (voice) {
+
+        utterance.voice =
+            voice;
+
+        console.log(
+            "Navigation voice:",
+            voice.name,
+            voice.lang
+        );
+    }
+
+
+    utterance.onstart = () => {
+
+        console.log(
+            "🔊🔊 SPEECH STARTED:",
+            message
+        );
+
+        if (voiceStatus) {
+
+            voiceStatus.textContent =
+                "🔊 Speaking navigation alert...";
+
+            voiceStatus.style.color =
+                "#00ff00";
+        }
+    };
+
+
+    utterance.onend = () => {
+
+        console.log(
+            "🔊 SPEECH FINISHED"
+        );
+
+        if (voiceStatus) {
+
+            voiceStatus.textContent =
+                "🔊 Voice ready";
+
+            voiceStatus.style.color =
+                "#00ff00";
+        }
+    };
+
+
+    utterance.onerror = (event) => {
+
+        console.error(
+            "❌ SPEECH ERROR:",
+            event.error
+        );
+
+        if (voiceStatus) {
+
+            voiceStatus.textContent =
+                "❌ Speech error: " +
+                event.error;
+
+            voiceStatus.style.color =
+                "#ff4444";
+        }
+    };
+
+
+    /*
+       Speak immediately.
+    */
+
+    synth.speak(
+        utterance
+    );
+}
+
+
+/* =========================================================
+   VOICES CHANGED
+   ========================================================= */
+
+if ("speechSynthesis" in window) {
+
+    window.speechSynthesis.addEventListener(
+        "voiceschanged",
+        () => {
+
+            console.log(
+                "🔊 Browser voices loaded:",
+                window.speechSynthesis.getVoices()
+            );
+        }
+    );
+}
+
+
+/* =========================================================
+   TEST VOICE BUTTON
+   ========================================================= */
+
+if (testVoiceButton) {
+
+    testVoiceButton.addEventListener(
+        "click",
+        () => {
+
+            console.log(
+                "🔊 TEST VOICE BUTTON CLICKED"
+            );
+
+            unlockSpeech();
+        }
+    );
+}
+
+
+/* =========================================================
+   RESIZE CANVAS
+   ========================================================= */
+
+function resizeCanvas() {
+
+    if (
+        !video.videoWidth ||
+        !video.videoHeight
+    ) {
+        return;
+    }
+
+    if (
+        overlay.width !==
+            video.videoWidth ||
+        overlay.height !==
+            video.videoHeight
+    ) {
+
+        overlay.width =
+            video.videoWidth;
+
+        overlay.height =
+            video.videoHeight;
+    }
+}
+
+
+/* =========================================================
+   START CAMERA BUTTON
+   ========================================================= */
+
+/*
+   IMPORTANT:
+   Speech unlock happens BEFORE startCamera().
+   Therefore it is directly connected to user tap.
+*/
+
+startCameraButton.addEventListener(
+    "click",
+    () => {
+
+        console.log(
+            "👆 START CAMERA BUTTON CLICKED"
+        );
+
+
+        /*
+           FIRST:
+           Unlock mobile speech.
+
+           DO NOT put this after await.
+        */
+
+        unlockSpeech();
+
+
+        /*
+           SECOND:
+           Start camera.
+        */
+
+        startCamera();
+    }
+);
+
+
+/* =========================================================
+   CAMERA START
+   ========================================================= */
+
+async function startCamera() {
+
+    try {
+
+        cameraStatus.textContent =
+            "Starting camera...";
+
+        startCameraButton.disabled =
+            true;
+
+
+        /* -------------------------------------------------
+           HTTPS CHECK
+           ------------------------------------------------- */
+
+        if (!window.isSecureContext) {
+
+            throw new Error(
+                "Camera ke liye HTTPS required hai.\n\n" +
+                "Current URL:\n" +
+                window.location.href
+            );
+        }
+
+
+        /* -------------------------------------------------
+           CAMERA API CHECK
+           ------------------------------------------------- */
+
+        if (
+            !navigator.mediaDevices ||
+            !navigator.mediaDevices.getUserMedia
+        ) {
+
+            throw new Error(
+                "Camera API available nahi hai."
+            );
+        }
+
+
+        /* -------------------------------------------------
+           OLD STREAM STOP
+           ------------------------------------------------- */
+
+        if (mobileStream) {
+
+            mobileStream
+                .getTracks()
+                .forEach(track => {
+                    track.stop();
+                });
+
+            mobileStream = null;
+        }
+
+
+        /* -------------------------------------------------
+           BACK CAMERA
+           ------------------------------------------------- */
+
+        mobileStream =
+            await navigator.mediaDevices.getUserMedia({
+
+                video: {
+
+                    facingMode: {
+                        ideal: "environment"
+                    },
+
+                    width: {
+                        ideal: 1280
+                    },
+
+                    height: {
+                        ideal: 720
+                    }
+                },
+
+                audio: false
+            });
+
+
+        /* -------------------------------------------------
+           ATTACH CAMERA
+           ------------------------------------------------- */
+
+        video.srcObject =
+            mobileStream;
+
+
+        /* -------------------------------------------------
+           PLAY CAMERA
+           ------------------------------------------------- */
+
+        await video.play();
+
+
+        cameraStatus.textContent =
+            "📷 Camera running";
+
+        startCameraButton.textContent =
+            "📷 Camera Running";
+
+
+        resizeCanvas();
+
+
+        /* -------------------------------------------------
+           START FRAME PROCESSING
+           ------------------------------------------------- */
+
+        if (!cameraProcessingStarted) {
+
+            cameraProcessingStarted =
+                true;
+
+            processMobileCamera();
+        }
+
+
+        /* -------------------------------------------------
+           START BOX ANIMATION
+           ------------------------------------------------- */
+
+        if (
+            !window.smartNavigationAnimationStarted
+        ) {
+
+            window.smartNavigationAnimationStarted =
+                true;
+
+            animationLoop();
+        }
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "❌ Camera Error:",
+            error
+        );
+
+
+        cameraStatus.textContent =
+            "❌ Camera error";
+
+        startCameraButton.disabled =
+            false;
+
+
+        let message =
+            "Camera access nahi mila.\n\n" +
+            error.name +
+            ": " +
+            error.message;
+
+
+        if (!window.isSecureContext) {
+
+            message =
+                "Camera ke liye HTTPS required hai.\n\n" +
+                "Current URL:\n" +
+                window.location.href;
+        }
+
+
+        alert(message);
+    }
+}
+
+
+/* =========================================================
+   VIDEO EVENTS
+   ========================================================= */
+
+video.addEventListener(
+    "loadedmetadata",
+    () => {
+        resizeCanvas();
+    }
+);
+
+
+video.addEventListener(
+    "playing",
+    () => {
+        resizeCanvas();
+    }
+);
+
+
+/* =========================================================
+   RECEIVE YOLO DETECTIONS
+   ========================================================= */
+
+function setNewDetections(detections) {
+
+    if (!Array.isArray(detections)) {
+        return;
+    }
+
+
+    /*
+       FRONTEND 3 METER FILTER
+    */
+
+    const cleaned =
+        detections
+
+            .filter(item => {
+
+                return (
+                    item &&
+                    item.box &&
+                    Number(item.distance) <= 3.0
+                );
+            })
+
+
+            .filter(item => {
+
+                return (
+                    item &&
+                    item.box &&
+
+                    Number.isFinite(
+                        Number(item.box.x1)
+                    ) &&
+
+                    Number.isFinite(
+                        Number(item.box.y1)
+                    ) &&
+
+                    Number.isFinite(
+                        Number(item.box.x2)
+                    ) &&
+
+                    Number.isFinite(
+                        Number(item.box.y2)
+                    )
+                );
+            })
+
+
+            .map(item => ({
+
+                ...item,
+
+                name:
+                    item.name ||
+                    "object",
+
+                box: {
+
+                    x1:
+                        Number(item.box.x1),
+
+                    y1:
+                        Number(item.box.y1),
+
+                    x2:
+                        Number(item.box.x2),
+
+                    y2:
+                        Number(item.box.y2)
+                },
+
+                distance:
+                    Number(item.distance) || 0,
+
+                track_id:
+                    item.track_id != null
+                        ? Number(item.track_id)
+                        : null
+            }));
+
+
+    /*
+       NO DETECTION
+    */
+
+    if (cleaned.length === 0) {
+
+        latestDetections = [];
+
+        return;
+    }
+
+
+    latestDetections =
+        cleaned;
+
+
+    lastDetectionTime =
+        performance.now();
+
+
+    updateSmoothBoxes(
+        cleaned
+    );
+}
+
+
+/* =========================================================
+   SMOOTH BOX MATCHING
+   ========================================================= */
+
+function updateSmoothBoxes(detections) {
+
+    const used =
+        new Set();
+
+    const result =
+        [];
+
+
+    detections.forEach(
+        det => {
+
+            const b =
+                det.box;
+
+            const cx =
+                (b.x1 + b.x2) / 2;
+
+            const cy =
+                (b.y1 + b.y2) / 2;
+
+
+            let best =
+                null;
+
+            let bestIndex =
+                -1;
+
+            let bestDistance =
+                Infinity;
+
+
+            /*
+               TRACK ID MATCH
+            */
+
+            if (
+                det.track_id != null
+            ) {
+
+                smoothDetections.forEach(
+                    (old, index) => {
+
+                        if (
+                            used.has(index)
+                        ) {
+                            return;
+                        }
+
+
+                        if (
+                            old.track_id ===
+                                det.track_id &&
+
+                            old.name ===
+                                det.name
+                        ) {
+
+                            best =
+                                old;
+
+                            bestIndex =
+                                index;
+
+                            bestDistance =
+                                0;
+                        }
+                    }
+                );
+            }
+
+
+            /*
+               FALLBACK MATCH
+            */
+
+            if (!best) {
+
+                smoothDetections.forEach(
+                    (old, index) => {
+
+                        if (
+                            used.has(index)
+                        ) {
+                            return;
+                        }
+
+
+                        if (
+                            old.name !==
+                            det.name
+                        ) {
+                            return;
+                        }
+
+
+                        const ob =
+                            old.box;
+
+
+                        const oldCx =
+                            (ob.x1 + ob.x2) / 2;
+
+                        const oldCy =
+                            (ob.y1 + ob.y2) / 2;
+
+
+                        const currentDistance =
+                            Math.hypot(
+                                cx - oldCx,
+                                cy - oldCy
+                            );
+
+
+                        if (
+                            currentDistance <
+                                bestDistance &&
+
+                            currentDistance <
+                                250
+                        ) {
+
+                            best =
+                                old;
+
+                            bestIndex =
+                                index;
+
+                            bestDistance =
+                                currentDistance;
+                        }
+                    }
+                );
+            }
+
+
+            /*
+               EXISTING BOX
+            */
+
+            if (best) {
+
+                used.add(
+                    bestIndex
+                );
+
+
+                best.box.x1 +=
+                    (
+                        b.x1 -
+                        best.box.x1
+                    ) *
+                    BOX_SMOOTHING;
+
+
+                best.box.y1 +=
+                    (
+                        b.y1 -
+                        best.box.y1
+                    ) *
+                    BOX_SMOOTHING;
+
+
+                best.box.x2 +=
+                    (
+                        b.x2 -
+                        best.box.x2
+                    ) *
+                    BOX_SMOOTHING;
+
+
+                best.box.y2 +=
+                    (
+                        b.y2 -
+                        best.box.y2
+                    ) *
+                    BOX_SMOOTHING;
+
+
+                best.distance +=
+                    (
+                        det.distance -
+                        best.distance
+                    ) *
+                    DISTANCE_SMOOTHING;
+
+
+                best.nearby =
+                    !!det.nearby;
+
+
+                best.traffic_light_color =
+                    det.traffic_light_color;
+
+
+                best.confidence =
+                    det.confidence;
+
+
+                best.position =
+                    det.position;
+
+
+                best.track_id =
+                    det.track_id;
+
+
+                best.lastSeen =
+                    performance.now();
+
+
+                result.push(
+                    best
+                );
+            }
+
+
+            /*
+               NEW BOX
+            */
+
+            else {
+
+                result.push({
+
+                    name:
+                        det.name,
+
+                    track_id:
+                        det.track_id,
+
+                    confidence:
+                        det.confidence,
+
+                    position:
+                        det.position,
+
+                    box: {
+                        ...b
+                    },
+
+                    distance:
+                        det.distance,
+
+                    nearby:
+                        !!det.nearby,
+
+                    traffic_light_color:
+                        det.traffic_light_color,
+
+                    lastSeen:
+                        performance.now()
+                });
+            }
+        }
+    );
+
+
+    smoothDetections =
+        result;
+}
+
+
+/* =========================================================
+   ANIMATION LOOP
+   ========================================================= */
+
+function animationLoop() {
+
+    resizeCanvas();
+
+
+    const now =
+        performance.now();
+
+
+    if (
+        latestDetections.length === 0 &&
+
+        now -
+            lastDetectionTime >
+            KEEP_BOX_MS
+    ) {
+
+        smoothDetections =
+            [];
+    }
+
+
+    drawYOLOBoxesSmooth();
+
+
+    requestAnimationFrame(
+        animationLoop
+    );
+}
+
+
+/* =========================================================
+   DRAW YOLO BOXES
+   ========================================================= */
+
+function drawYOLOBoxesSmooth() {
+
+    resizeCanvas();
+
+
+    if (
+        !video.videoWidth ||
+        !video.videoHeight
+    ) {
+        return;
+    }
+
+
+    const canvasWidth =
+        overlay.width;
+
+    const canvasHeight =
+        overlay.height;
+
+
+    ctx.clearRect(
+        0,
+        0,
+        canvasWidth,
+        canvasHeight
+    );
+
+
+    const scaleX =
+        canvasWidth /
+        video.videoWidth;
+
+    const scaleY =
+        canvasHeight /
+        video.videoHeight;
+
+
+    const now =
+        performance.now();
+
+
+    smoothDetections.forEach(
+        item => {
+
+            if (
+                now -
+                    item.lastSeen >
+                    KEEP_BOX_MS
+            ) {
+                return;
+            }
+
+
+            const b =
+                item.box;
+
+
+            const x1 =
+                b.x1 *
+                scaleX;
+
+            const y1 =
+                b.y1 *
+                scaleY;
+
+            const x2 =
+                b.x2 *
+                scaleX;
+
+            const y2 =
+                b.y2 *
+                scaleY;
+
+
+            const width =
+                x2 - x1;
+
+            const height =
+                y2 - y1;
+
+
+            if (
+                width <= 2 ||
+                height <= 2
+            ) {
+                return;
+            }
+
+
+            /*
+               BOX COLOR
+            */
+
+            let boxColor =
+                "#00ff00";
+
+
+            if (
+                item.nearby &&
+                item.name !==
+                    "traffic light"
+            ) {
+
+                boxColor =
+                    "#ff0000";
+            }
+
+
+            if (
+                item.name ===
+                "traffic light"
+            ) {
+
+                boxColor =
+                    "#ffff00";
+            }
+
+
+            /*
+               BOX
+            */
+
+            ctx.strokeStyle =
+                boxColor;
+
+            ctx.lineWidth =
+                4;
+
+
+            ctx.strokeRect(
+                x1,
+                y1,
+                width,
+                height
+            );
+
+
+            /*
+               LABEL
+            */
+
+            let label =
+                item.name;
+
+
+            if (
+                item.name ===
+                "traffic light"
+            ) {
+
+                label =
+                    "Traffic Light";
+
+
+                if (
+                    item.traffic_light_color
+                ) {
+
+                    label +=
+                        " " +
+                        item.traffic_light_color;
+                }
+            }
+
+
+            if (
+                Number.isFinite(
+                    item.distance
+                )
+            ) {
+
+                label +=
+                    " " +
+                    Number(
+                        item.distance
+                    ).toFixed(1) +
+                    "m";
+            }
+
+
+            if (
+                item.position
+            ) {
+
+                label +=
+                    " | " +
+                    item.position;
+            }
+
+
+            /*
+               LABEL TEXT
+            */
+
+            ctx.font =
+                "bold 18px Arial";
+
+
+            const textWidth =
+                ctx.measureText(
+                    label
+                ).width;
+
+
+            const textHeight =
+                24;
+
+
+            let labelX =
+                x1;
+
+            let labelY =
+                y1 - 8;
+
+
+            if (
+                labelY <
+                textHeight
+            ) {
+
+                labelY =
+                    y1 +
+                    textHeight +
+                    5;
+            }
+
+
+            if (
+                labelX +
+                    textWidth +
+                    12 >
+                canvasWidth
+            ) {
+
+                labelX =
+                    Math.max(
+                        0,
+                        canvasWidth -
+                            textWidth -
+                            12
+                    );
+            }
+
+
+            /*
+               LABEL BACKGROUND
+            */
+
+            ctx.fillStyle =
+                boxColor;
+
+
+            ctx.fillRect(
+                labelX,
+                labelY -
+                    textHeight,
+                textWidth +
+                    12,
+                textHeight +
+                    6
+            );
+
+
+            /*
+               LABEL TEXT
+            */
+
+            ctx.fillStyle =
+                "#000";
+
+
+            ctx.fillText(
+                label,
+                labelX + 6,
+                labelY
+            );
+        }
+    );
+}
+
+
+/* =========================================================
+   SEND MOBILE CAMERA FRAME TO FLASK
+   ========================================================= */
+
+async function processMobileCamera() {
+
+    if (!mobileStream) {
+
+        cameraProcessingStarted =
+            false;
+
+        return;
+    }
+
+
+    /*
+       CAMERA READY
+    */
+
+    if (
+        video.readyState < 2 ||
+        !video.videoWidth ||
+        !video.videoHeight
+    ) {
+
+        setTimeout(
+            processMobileCamera,
+            300
+        );
+
+        return;
+    }
+
+
+    /*
+       ONLY ONE REQUEST
+    */
+
+    if (!sendingFrame) {
+
+        sendingFrame =
+            true;
+
+
+        try {
+
+            /*
+               COPY VIDEO FRAME
+            */
+
+            frameCanvas.width =
+                video.videoWidth;
+
+            frameCanvas.height =
+                video.videoHeight;
+
+
+            frameCtx.drawImage(
+                video,
+                0,
+                0,
+                frameCanvas.width,
+                frameCanvas.height
+            );
+
+
+            /*
+               JPEG
+            */
+
+            const blob =
+                await new Promise(
+                    resolve => {
+
+                        frameCanvas.toBlob(
+                            resolve,
+                            "image/jpeg",
+                            0.60
+                        );
+                    }
+                );
+
+
+            if (!blob) {
+
+                throw new Error(
+                    "Could not create camera frame."
+                );
+            }
+
+
+            /*
+               FORM DATA
+            */
+
+            const formData =
+                new FormData();
+
+
+            formData.append(
+                "frame",
+                blob,
+                "mobile_camera.jpg"
+            );
+
+
+            /*
+               SEND TO FLASK
+            */
+
+            const response =
+                await fetch(
+                    `${FLASK_URL}/api/process_frame`,
+                    {
+                        method: "POST",
+                        body: formData
+                    }
+                );
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    "Flask server error: " +
+                    response.status
+                );
+            }
+
+
+            /*
+               READ JSON
+            */
+
+            const data =
+                await response.json();
+
+
+            console.log(
+                "================================"
+            );
+
+            console.log(
+                "📦 FLASK RESPONSE:",
+                data
+            );
+
+            console.log(
+                "🗣️ VOICE MESSAGE:",
+                data.voice_message
+            );
+
+            console.log(
+                "🎯 DETECTIONS:",
+                data.detections
+            );
+
+            console.log(
+                "================================"
+            );
+
+
+            /*
+               UPDATE UI
+            */
+
+            updateNavigationUI(
+                data
+            );
+
+
+            /*
+               UPDATE BOXES
+            */
+
+            setNewDetections(
+                data.detections || []
+            );
+
+
+            /*
+               MOBILE VOICE
+            */
+
+            if (
+                data.voice_message &&
+                data.voice_message.trim() !== ""
+            ) {
+
+                console.log(
+                    "📢 OBJECT VOICE:",
+                    data.voice_message
+                );
+
+
+                /*
+                   Make sure browser engine
+                   is resumed.
+                */
+
+                if (
+                    "speechSynthesis" in window
+                ) {
+
+                    window.speechSynthesis.resume();
+                }
+
+
+                speakOnMobile(
+                    data.voice_message
+                );
+            }
+
+        }
+
+        catch (error) {
+
+            console.error(
+                "❌ Mobile frame processing error:",
+                error
+            );
+        }
+
+
+        finally {
+
+            sendingFrame =
+                false;
+        }
+    }
+
+
+    /*
+       NEXT FRAME
+    */
+
+    setTimeout(
+        processMobileCamera,
+        300
+    );
+}
+
+
+/* =========================================================
+   UPDATE NAVIGATION UI
+   ========================================================= */
+
+function updateNavigationUI(data) {
+
+    if (!data) {
+        return;
+    }
+
+
+    console.log(
+        "Updating navigation UI:",
+        data
+    );
+
+
+    /*
+       FIND CLOSEST
+    */
+
+    let closest =
+        null;
+
+
+    if (
+        data.closest_object
+    ) {
+
+        closest =
+            data.closest_object;
+
+    }
+
+    else if (
+        data.closest
+    ) {
+
+        closest =
+            data.closest;
+    }
+
+
+    /*
+       CLOSEST OBJECT
+    */
+
+    if (
+        closest &&
+        closest.name
+    ) {
+
+        objectName.textContent =
+            closest.name;
+
+
+        const distance =
+            Number(
+                closest.distance
+            );
+
+
+        if (
+            Number.isFinite(
+                distance
+            )
+        ) {
+
+            distanceElement.textContent =
+                distance.toFixed(1);
+
+        }
+
+        else {
+
+            distanceElement.textContent =
+                "0";
+        }
+
+
+        directionElement.textContent =
+            closest.position ||
+            "Center";
+    }
+
+
+    else {
+
+        objectName.textContent =
+            "None";
+
+        distanceElement.textContent =
+            "0";
+
+        directionElement.textContent =
+            "None";
+    }
+
+
+    /*
+       PATH
+    */
+
+    if (
+        data.path !== undefined &&
+        data.path !== null
+    ) {
+
+        pathElement.textContent =
+            data.path;
+    }
+
+
+    /*
+       DESCRIPTION
+    */
+
+    if (
+        data.description !== undefined &&
+        data.description !== null
+    ) {
+
+        descriptionElement.textContent =
+            data.description;
+    }
+
+
+    /*
+       VOICE MESSAGE LOG
+    */
+
+    if (
+        data.voice_message &&
+        data.voice_message.trim() !== ""
+    ) {
+
+        console.log(
+            "🗣️ Navigation voice:",
+            data.voice_message
+        );
+    }
+}
+
+
+/* =========================================================
+   OPTIONAL BACKEND NAVIGATION CHECK
+   ========================================================= */
+
+async function updateNavigation() {
+
+    if (
+        cameraProcessingStarted
+    ) {
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                `${FLASK_URL}/api/navigation_data`
+            );
+
+
+        if (!response.ok) {
+            return;
+        }
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "Navigation data:",
+            data
+        );
+
+
+        updateNavigationUI(
+            data
+        );
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Navigation API Error:",
+            error
+        );
+    }
+}
+
+
+/* =========================================================
+   INITIAL NAVIGATION DATA
+   ========================================================= */
+
+updateNavigation();
+
+
+/* =========================================================
+   INITIAL HTTPS CHECK
+   ========================================================= */
+
+checkSecureContext();
+
+
+/* =========================================================
+   WINDOW RESIZE
+   ========================================================= */
+
+window.addEventListener(
+    "resize",
+    () => {
+
+        resizeCanvas();
+    }
+);
+
+
+/* =========================================================
+   PAGE CLOSE
+   ========================================================= */
+
+window.addEventListener(
+    "beforeunload",
+    () => {
+
+        if (mobileStream) {
+
+            mobileStream
+                .getTracks()
+                .forEach(track => {
+                    track.stop();
+                });
+        }
+
+
+        if (
+            "speechSynthesis" in window
+        ) {
+
+            window.speechSynthesis.cancel();
+        }
+    }
+);
+
+</script>
+<script src="/js/voice_assistance.js"></script>
+
+
+
+</body>
+
+</html>

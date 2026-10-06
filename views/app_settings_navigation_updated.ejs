@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>App Settings</title>
+
+<!-- Font Awesome Icons -->
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<link rel="stylesheet" href="/css/style.css">
+
+</head>
+
+<body class ="settings-page">
+<div class="app">
+
+    <!-- HEADER -->
+    <header class="header">
+
+        <div class="back">
+            <i class="fa-solid fa-arrow-left"></i>
+        </div>
+
+        <div class="title">
+            <i class="fa-solid fa-gear"></i>
+            <h1>App Settings</h1>
+        </div>
+
+    </header>
+
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <p class="intro">
+            Customize your app experience and<br>
+            accessibility preferences
+        </p>
+
+
+        <!-- VOICE & AUDIO -->
+        <section>
+
+            <div class="section-title">
+                <i class="fa-solid fa-wave-square"></i>
+                <span>VOICE & AUDIO</span>
+            </div>
+
+            <div class="settings-card">
+
+                <!-- Voice Guidance -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-volume-high"></i>
+                        </div>
+
+                        <div>
+                            <h3>Voice Guidance</h3>
+                            <p>Enable or disable voice navigation</p>
+                        </div>
+
+                    </div>
+
+                    <label class="switch">
+                        <input type="checkbox" id="obstacleAlerts" checked>
+                        <span class="slider"></span>
+                    </label>
+
+                </div>
+
+
+                <!-- Voice Type -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-user-group"></i>
+                        </div>
+
+                        <div>
+                            <h3>Voice Type</h3>
+                            <p>Select preferred voice</p>
+                        </div>
+
+                    </div>
+
+                    <div class="value">
+                        Female (English)
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+
+                </div>
+
+
+                <!-- Speech Rate -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-gauge-high"></i>
+                        </div>
+
+                        <div>
+                            <h3>Speech Rate</h3>
+                            <p>Adjust voice speed</p>
+                        </div>
+
+                    </div>
+
+                    <div class="value">
+                        Normal
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+
+                </div>
+
+
+                <!-- Volume -->
+                <div class="setting-row volume-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-volume-high"></i>
+                        </div>
+
+                        <div>
+                            <h3>Volume</h3>
+                            <p>Adjust voice volume</p>
+                        </div>
+
+                    </div>
+
+                    <div class="volume-control">
+                        <span>70%</span>
+                        <input type="range" min="0" max="100" value="70">
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- NAVIGATION -->
+        <section>
+
+            <div class="section-title">
+                <i class="fa-regular fa-compass"></i>
+                <span>NAVIGATION</span>
+            </div>
+
+            <div class="settings-card">
+
+                <!-- Navigation Mode -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-location-arrow"></i>
+                        </div>
+
+                        <div>
+                            <h3>Navigation Mode</h3>
+                            <p>Choose navigation preference</p>
+                        </div>
+
+                    </div>
+
+                    <select class="setting-dropdown" id="navigationMode">
+                        <option value="safe">Safe Path</option>
+                        <option value="fast">Fastest Route</option>
+                        <option value="accessible">Accessible Route</option>
+                    </select>
+
+                </div>
+
+
+                <!-- Obstacle Alerts -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+
+                        <div>
+                            <h3>Obstacle Alerts</h3>
+                            <p>Get alerts for nearby obstacles</p>
+                        </div>
+
+                    </div>
+
+                    <label class="switch">
+                        <input type="checkbox" id="hapticFeedback" checked>
+                        <span class="slider"></span>
+                    </label>
+
+                </div>
+
+
+                <!-- Distance Unit -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-ruler"></i>
+                        </div>
+
+                        <div>
+                            <h3>Distance Unit</h3>
+                            <p>Choose distance measurement unit</p>
+                        </div>
+
+                    </div>
+
+                    <select class="setting-dropdown" id="distanceUnit">
+                        <option value="meters">Meters (m)</option>
+                        <option value="feet">Feet (ft)</option>
+                    </select>
+
+                </div>
+
+
+                <!-- Haptic Feedback -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-mobile-screen-button"></i>
+                        </div>
+
+                        <div>
+                            <h3>Haptic Feedback</h3>
+                            <p>Vibration alerts for obstacles and turns</p>
+                        </div>
+
+                    </div>
+
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="slider"></span>
+                    </label>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- GENERAL -->
+        <section>
+
+            <div class="section-title">
+                <i class="fa-solid fa-gear"></i>
+                <span>GENERAL</span>
+            </div>
+
+            <div class="settings-card">
+
+                <!-- Language -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-globe"></i>
+                        </div>
+
+                        <div>
+                            <h3>Language</h3>
+                            <p>Select app language</p>
+                        </div>
+
+                    </div>
+
+                    <div class="value">
+                        English
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+
+                </div>
+
+
+                <!-- Theme -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-palette"></i>
+                        </div>
+
+                        <div>
+                            <h3>Theme</h3>
+                            <p>Choose app theme</p>
+                        </div>
+
+                    </div>
+
+                    <div class="value">
+                        Light Theme
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+
+                </div>
+
+
+                <!-- Text Size -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle text-icon">
+                            <b>Tt</b>
+                        </div>
+
+                        <div>
+                            <h3>Text Size</h3>
+                            <p>Adjust text size for better readability</p>
+                        </div>
+
+                    </div>
+
+                    <div class="value">
+                        Medium
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+
+                </div>
+
+
+                <!-- High Contrast -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-circle-half-stroke"></i>
+                        </div>
+
+                        <div>
+                            <h3>High Contrast Mode</h3>
+                            <p>Improve visibility with high contrast</p>
+                        </div>
+
+                    </div>
+
+                    <label class="switch">
+                        <input type="checkbox">
+                        <span class="slider"></span>
+                    </label>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ABOUT & SUPPORT -->
+        <section>
+
+            <div class="section-title">
+                <i class="fa-regular fa-circle-question"></i>
+                <span>ABOUT & SUPPORT</span>
+            </div>
+
+            <div class="settings-card">
+
+                <!-- Help -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-headset"></i>
+                        </div>
+
+                        <div>
+                            <h3>Help & Support</h3>
+                            <p>Get help and support</p>
+                        </div>
+
+                    </div>
+
+                    <i class="fa-solid fa-chevron-right arrow"></i>
+
+                </div>
+
+
+                <!-- About -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle info">
+                            <i class="fa-solid fa-info"></i>
+                        </div>
+
+                        <div>
+                            <h3>About Green Edge AI</h3>
+                            <p>App version and information</p>
+                        </div>
+
+                    </div>
+
+                    <div class="value">
+                        v1.0.0
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- LOGOUT -->
+        <button class="logout">
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span>Logout</span>
+        </button>
+
+    </main>
+
+</div>
+```
+
+</body>
+
+</html>

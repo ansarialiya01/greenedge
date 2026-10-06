@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Emergency Contacts - GreenEdge AI</title>
+
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body class="home-page">
+
+<div class="login-page">
+
+    <div class="login-card">
+
+        <a href="/setting" class="back-btn">←</a>
+
+        <div class="login-heading">
+            <h1>Emergency Contacts</h1>
+        </div>
+
+        <!-- CONTACT 1 -->
+
+        <h2 style="margin-bottom:5px;">Emergency Contact 1</h2>
+
+        <div class="input-box">
+            <span class="input-icon">👤</span>
+
+            <input
+                type="text"
+                id="contactName1"
+                name="contactName1"
+                placeholder="Contact Name"
+            >
+        </div>
+
+        <div class="input-box">
+            <span class="input-icon">📞</span>
+
+            <input
+                type="tel"
+                id="contactPhone1"
+                name="contactPhone1"
+                placeholder="10 digit phone number"
+                maxlength="10"
+            >
+        </div>
+
+
+        <!-- CONTACT 2 -->
+
+        <h2 style="margin-top:25px; margin-bottom:5px;">
+            Emergency Contact 2
+        </h2>
+
+        <div class="input-box">
+            <span class="input-icon">👤</span>
+
+            <input
+                type="text"
+                id="contactName2"
+                name="contactName2"
+                placeholder="Contact Name"
+            >
+        </div>
+
+        <div class="input-box">
+            <span class="input-icon">📞</span>
+
+            <input
+                type="tel"
+                id="contactPhone2"
+                name="contactPhone2"
+                placeholder="10 digit phone number"
+                maxlength="10"
+            >
+        </div>
+
+
+        <button
+            type="button"
+            class="login-btn"
+            id="saveGuardianContacts"
+        >
+            SAVE CONTACTS
+        </button>
+
+    </div>
+
+</div>
+
+
+<script src="/js/voice_assistance.js"></script>
+
+<script>
+document.getElementById("saveGuardianContacts").addEventListener("click", async function () {
+
+    const contact1Name =
+        document.getElementById("contactName1").value.trim();
+
+    const contact1Phone =
+        document.getElementById("contactPhone1").value.trim();
+
+    const contact2Name =
+        document.getElementById("contactName2").value.trim();
+
+    const contact2Phone =
+        document.getElementById("contactPhone2").value.trim();
+
+
+    if (!contact1Name || !contact1Phone ||
+        !contact2Name || !contact2Phone) {
+
+        alert("Please enter both emergency contacts.");
+        return;
+    }
+
+
+    if (!/^\d{10}$/.test(contact1Phone) ||
+        !/^\d{10}$/.test(contact2Phone)) {
+
+        alert("Both phone numbers must contain 10 digits.");
+        return;
+    }
+
+
+    if (contact1Phone === contact2Phone) {
+
+        alert("Both contacts must have different numbers.");
+        return;
+    }
+
+
+    try {
+
+        const response = await fetch("/api/update-emergency-contacts", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                contacts: [
+                    {
+                        name: contact1Name,
+                        phone: contact1Phone
+                    },
+                    {
+                        name: contact2Name,
+                        phone: contact2Phone
+                    }
+                ]
+            })
+
+        });
+
+
+        const data = await response.json();
+
+
+        if (!data.success) {
+
+            alert(data.message || "Could not save contacts.");
+            return;
+        }
+
+
+        alert("Emergency contacts updated successfully.");
+
+        window.location.href = "/setting";
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert("Could not connect to server.");
+
+    }
+
+});
+</script>
+<script src="/js/voice_assistance.js"></script>
+
+</body>
+</html>

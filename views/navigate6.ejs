@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Details Screen</title>
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet">
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body class="home-page">
+
+    <div class="phone-container">
+
+        <!-- Header -->
+        <header class="app-header">
+            <i class="fa-solid fa-chevron-left back-icon" id="backBtn"></i>
+            <h2>Navigation</h2>
+        </header>
+
+
+        <!-- Main Content -->
+        <main class="app-content">
+
+            <!-- ========================= -->
+            <!-- LIVE CAMERA FEED -->
+            <!-- ========================= -->
+
+            <div class="camera-container">
+
+                <img
+                    src="http://192.168.0.106:5000/video_feed"
+                    alt="Live Navigation Camera"
+                    class="navigation-camera"
+                >
+
+            </div>
+
+
+            <!-- ========================= -->
+            <!-- CLOSEST OBSTACLE -->
+            <!-- ========================= -->
+
+            <div class="section">
+
+                <h3 class="section-title">
+                    Closest Obstacle
+                </h3>
+
+                <div class="card">
+
+                    <div class="row">
+
+                        <div class="icon-text">
+
+                            <i class="fa-solid fa-car icon-red"></i>
+
+                            <span
+                                class="primary-text"
+                                id="obs1-name">
+                                Vehicle
+                            </span>
+
+                        </div>
+
+                        <span
+                            class="secondary-text"
+                            id="obs1-dist">
+                            3.2 meters
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ========================= -->
+            <!-- OTHER OBJECTS -->
+            <!-- ========================= -->
+
+            <div class="section">
+
+                <h3 class="section-title">
+                    Other Objects
+                </h3>
+
+                <div class="card">
+
+                    <!-- Person -->
+
+                    <div class="row border-bottom">
+
+                        <div class="icon-text">
+
+                            <i class="fa-solid fa-person icon-orange"></i>
+
+                            <span
+                                class="primary-text"
+                                id="obs2-name">
+                                Person
+                            </span>
+
+                        </div>
+
+                        <span
+                            class="secondary-text"
+                            id="obs2-dist">
+                            2.1 meters
+                        </span>
+
+                    </div>
+
+
+                    <!-- Pole -->
+
+                    <div class="row">
+
+                        <div class="icon-text">
+
+                            <div class="icon-pole-container">
+
+                                <div class="custom-pole-icon"></div>
+
+                            </div>
+
+                            <span
+                                class="primary-text"
+                                id="obs3-name">
+                                Pole
+                            </span>
+
+                        </div>
+
+                        <span
+                            class="secondary-text"
+                            id="obs3-dist">
+                            1.5 meters
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ========================= -->
+            <!-- SAFE PATH -->
+            <!-- ========================= -->
+
+            <div class="section">
+
+                <h3 class="section-title">
+                    Safe Path
+                </h3>
+
+                <div class="card card-green">
+
+                    <div class="safe-path-content">
+
+                        <i class="fa-solid fa-person-walking icon-green"></i>
+
+                        <div class="text-group">
+
+                            <span
+                                class="safe-title"
+                                id="safe-title">
+                                Path is clear
+                            </span>
+
+                            <span
+                                class="safe-desc"
+                                id="safe-desc">
+                                You can move forward
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="spacer"></div>
+
+
+            <!-- ========================= -->
+            <!-- VOICE GUIDANCE -->
+            <!-- ========================= -->
+
+            <button
+                class="primary-btn off"
+                id="voiceGuidanceBtn">
+
+                <i
+                    class="fa-solid fa-volume-xmark"
+                    id="voiceIcon">
+                </i>
+
+                <span id="voiceText">
+                    Voice Guidance OFF
+                </span>
+
+            </button>
+
+        </main>
+
+    </div>
+
+
+    <!-- JavaScript -->
+    <script src="/js/navigate6.js"></script>
+    <script src="/js/common.js"></script>
+    <script src="/js/voice_assistant.js"></script>
+
+</body>
+</html>

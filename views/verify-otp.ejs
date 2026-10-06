@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Verify OTP - GreenEdge AI</title>
+
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body class ="home-page">
+
+<div class="login-page">
+
+    <div class="login-card">
+
+        <a href="/forgot-password" class="back-btn">←</a>
+
+        <div class="login-heading">
+            <h1>Verify OTP</h1>
+            <p>Enter the 6-digit OTP to continue</p>
+        </div>
+
+        <% if (typeof error !== 'undefined') { %>
+            <div class="login-error">
+                <%= error %>
+            </div>
+        <% } %>
+
+        <form action="/verify-otp" method="POST">
+
+            <div class="input-box">
+                <span class="input-icon">🔐</span>
+
+                <input
+                    type="text"
+                    name="otp"
+                    placeholder="Enter OTP"
+                    maxlength="6"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="login-btn">
+                VERIFY OTP
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+</body>
+</html>

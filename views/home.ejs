@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Dashboard</title>
+    <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body class ="home-page">
+
+    <div class="dashboard">
+
+        
+        <header class="header">
+
+            <div class="menu" onclick="window.location.href='/setting'">
+                ☰
+            <i class="fa-solid back-icon"></i>
+            </div>
+            <div class="menu"></div>
+
+            <div class="welcome">
+                <h1>Hello, User 👋</h1>
+                <p>How can we assist you today?</p>
+            </div>
+
+            <div class="notification">🔔</div>
+
+        </header>
+
+
+        <!-- Main Cards -->
+        <main class="cards">
+
+            <!-- Smart Navigation -->
+            <a href="/Snavigation" class="card navigation">
+
+                <div class="icon person">🚶</div>
+
+                <div class="card-text">
+                    <h2>Navigation</h2>
+                    <p>Navigate safely</p>
+                </div>
+
+            </a>
+
+
+            <!-- Document Reader -->
+            <a href="/documentR" class="card reader">
+
+                <div class="icon">📷</div>
+
+                <div class="card-text">
+                    <h2>Document<br>Reader</h2>
+                    <p>Scan &amp; listen</p>
+                </div>
+
+            </a>
+
+            <!-- Location -->
+            <a href="/location" class=" card location-card ">
+                <div class="card-icon">
+                    <i class="fa-solid fa-location-dot"></i>
+                </div>
+
+                <div class="card-text">
+                    <h2>Location</h2>
+                    <p>View your current location</p>
+                </div>
+
+                <!-- <i class="fa-solid fa-chevron-right card-arrow"></i> -->
+            </a>
+
+
+
+            <!-- Emergency SOS -->
+            <a href="/sos" class="card emergency">
+
+                <div class="sos">SOS</div>
+
+                <div class="card-text">
+                    <h2>Emergency<br>SOS</h2>
+                    <p>Get help in emergency</p>
+                </div>
+
+            </a>
+            <script src="/js/common.js"></script>
+            <script src="/js/voice_assistance.js"></script>
+            
+
+        </main>
+
+    </div>
+
+</body>
+</html> 

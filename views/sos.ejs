@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency SOS Screen</title>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- External CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class ="home-page">
+
+    <div class="phone-container">
+        
+        <!-- Header -->
+        <header class="app-header">
+            <i class="fa-solid fa-chevron-left back-icon" id="backBtn"></i>
+            <h2>Emergency SOS</h2>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-content">
+            
+            <!-- Emergency Contact Section -->
+            <div>
+                <h3 class="section-title">Emergency Contact</h3>
+                <div class="contact-card">
+                    <div class="contact-info">
+                        <div class="avatar-circle">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <div class="contact-details">
+                            <h4 id="contactName">Emergency Contact</h4>
+                            <p id="contactPhone">Loading...</p>
+                        </div>
+                    </div>
+                    <button class="call-btn" id="callBtn" title="Call Mother">
+                        <i class="fa-solid fa-phone"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- SOS Center Trigger Button -->
+            <div class="sos-center-container">
+                <div class="sos-wrapper">
+                    <div class="pulse-ring"></div>
+                    <div class="pulse-ring-2"></div>
+                    <button class="sos-btn" id="sosBtn">SOS</button>
+                </div>
+                <p class="sos-instructions" id="sosInstructionText">
+                    Press and hold to send SOS<br>
+                    Your location will be shared<br>
+                    with your emergency contact.
+                </p>
+            </div>
+
+            <!-- Location Section -->
+            <div>
+                <div class="location-card">
+                    <div class="location-left">
+                        <i class="fa-solid fa-location-dot location-icon"></i>
+                        <div class="location-text">
+                            <h4>Your Location</h4>
+                            <p id="coordinatesText">19.0760° N, 72.8777° E</p>
+                        </div>
+                    </div>
+                    <button class="refresh-btn" id="refreshBtn">Refresh</button>
+                </div>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- Interactive JavaScript -->
+    <script src = "/js/sos.js"></script>
+    <script src = "/js/common.js"></script>
+    <script src="/js/voice_assistance.js"></script>
+</body>
+</html>

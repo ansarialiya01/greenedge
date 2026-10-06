@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>App Settings</title>
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <link rel="stylesheet" href="/css/style.css">
+
+</head>
+
+<body class="settings-page">
+
+<div class="app">
+
+    <!-- HEADER -->
+    <header class="header">
+
+        <div class="back">
+            <i class="fa-solid fa-arrow-left"></i>
+        </div>
+
+        <div class="title">
+            <i class="fa-solid fa-gear"></i>
+            <h1>App Settings</h1>
+        </div>
+
+    </header>
+
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <p class="intro">
+            Customize your app experience and<br>
+            accessibility preferences
+        </p>
+
+
+        <!-- ================= VOICE & AUDIO ================= -->
+
+        <section>
+
+            <div class="section-title">
+                <i class="fa-solid fa-wave-square"></i>
+                <span>VOICE & AUDIO</span>
+            </div>
+
+            <div class="settings-card">
+
+                <!-- Voice Guidance -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-volume-high"></i>
+                        </div>
+
+                        <div>
+                            <h3>Voice Guidance</h3>
+                            <p>Enable or disable voice navigation</p>
+                        </div>
+
+                    </div>
+
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="slider"></span>
+                    </label>
+
+                </div>
+
+
+                <!-- Voice Type -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-user-group"></i>
+                        </div>
+
+                        <div>
+                            <h3>Voice Type</h3>
+                            <p>Select preferred voice</p>
+                        </div>
+
+                    </div>
+
+                    <div class="value">
+                        Female (English)
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+
+                </div>
+
+
+                <!-- Speech Rate -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-gauge-high"></i>
+                        </div>
+
+                        <div>
+                            <h3>Speech Rate</h3>
+                            <p>Adjust voice speed</p>
+                        </div>
+
+                    </div>
+
+                    <div class="value">
+                        Normal
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+
+                </div>
+
+
+                <!-- Volume -->
+                <div class="setting-row volume-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-volume-high"></i>
+                        </div>
+
+                        <div>
+                            <h3>Volume</h3>
+                            <p>Adjust voice volume</p>
+                        </div>
+
+                    </div>
+
+                    <div class="volume-control">
+                        <span>70%</span>
+                        <input type="range" min="0" max="100" value="70">
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= NAVIGATION ================= -->
+
+        <section>
+
+            <div class="section-title">
+                <i class="fa-regular fa-compass"></i>
+                <span>NAVIGATION</span>
+            </div>
+
+            <div class="settings-card">
+
+                <!-- Navigation Mode -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-location-arrow"></i>
+                        </div>
+
+                        <div>
+                            <h3>Navigation Mode</h3>
+                            <p>Choose navigation preference</p>
+                        </div>
+
+                    </div>
+
+                    <select class="setting-dropdown" id="navigationMode">
+
+                        <option value="safe">
+                            Safe Path
+                        </option>
+
+                        <option value="fast">
+                            Fastest Route
+                        </option>
+
+                        <option value="accessible">
+                            Accessible Route
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <!-- Obstacle Alerts -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+
+                        <div>
+                            <h3>Obstacle Alerts</h3>
+                            <p>Get alerts for nearby obstacles</p>
+                        </div>
+
+                    </div>
+
+                    <label class="switch">
+
+                        <input type="checkbox"
+                               id="obstacleAlerts"
+                               checked>
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+
+                <!-- Distance Unit -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-ruler"></i>
+                        </div>
+
+                        <div>
+                            <h3>Distance Unit</h3>
+                            <p>Choose distance measurement unit</p>
+                        </div>
+
+                    </div>
+
+                    <select class="setting-dropdown" id="distanceUnit">
+
+                        <option value="meters">
+                            Meters (m)
+                        </option>
+
+                        <option value="feet">
+                            Feet (ft)
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <!-- Haptic Feedback -->
+                <div class="setting-row">
+
+                    <div class="left-content">
+
+                        <div class="icon-circle">
+                            <i class="fa-solid fa-mobile-screen-button"></i>
+                        </div>
+
+                        <div>
+                            <h3>Haptic Feedback</h3>
+                            <p>Vibration alerts for obstacles and turns</p>
+                        </div>
+
+                    </div>
+
+                    <label class="switch">
+
+                        <input type="checkbox"
+                               id="hapticFeedback"
+                               checked>
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                </div>
+
+            </div>
+
+        </section>
+<section>
+    <div class="section-title">
+        <i class="fa-solid fa-user"></i><span>ACCOUNT</span>
+    </div>
+    <div class="settings-card">
+        <div class="setting-row" id="changeNumberRow" style="cursor:pointer">
+            <div class="left-content">
+                <div class="icon-circle"><i class="fa-solid fa-phone"></i></div>
+                <div>
+                    <h3>Change Number</h3>
+                    <p>Say "change number" to update</p>
+                </div>
+            </div>
+            <input type="text" name="phone" readonly placeholder="New number"
+                   style="border:none;background:transparent;text-align:right;width:120px">
+        </div>
+    </div>
+</section>
+    </main>
+</div>
+<script>
+document.getElementById("changeNumberRow")
+  .addEventListener("click", () => window.startChangeNumber && window.startChangeNumber());
+</script>
+<!-- SETTINGS JAVASCRIPT -->
+<script src="/js/voice-settings.js"></script>
+<script src="/js/navigation-settings.js"></script>
+<script src="/js/general-settings.js"></script>
+<script src="/js/voice_assistance.js"></script>
+<script src="/js/guardianRoutes.js"></script>
+
+</body>
+
+</html>

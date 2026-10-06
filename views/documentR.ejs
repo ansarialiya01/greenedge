@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+```
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>Document Reader Screen</title>
+
+<!-- FontAwesome Icons -->
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet">
+
+<!-- Tesseract OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<link rel="stylesheet" href="/css/style.css">
+```
+
+</head>
+
+<body class="home-page">
+
+```
+<div class="phone-container">
+
+    <!-- Header -->
+    <header class="app-header">
+
+        <i class="fa-solid fa-chevron-left back-icon"
+           id="backBtn"></i>
+
+        <h2>Document Reader</h2>
+
+    </header>
+
+
+    <!-- Main Content -->
+    <main class="app-content">
+
+        <!-- Action Panel -->
+        <div class="action-panel">
+
+            <button class="action-btn" id="scanBtn">
+
+                <i class="fa-solid fa-camera icon-green"></i>
+
+                <span>Scan Document</span>
+
+            </button>
+
+
+            <div class="divider"></div>
+
+
+            <button class="action-btn" id="uploadBtn">
+
+                <i class="fa-solid fa-upload icon-green"></i>
+
+                <span>
+                    Upload from<br>
+                    Gallery
+                </span>
+
+            </button>
+
+        </div>
+
+
+        <!-- Hidden File Inputs -->
+
+        <input
+            type="file"
+            id="cameraInput"
+            accept="image/*"
+            capture="environment"
+            style="display:none;"
+        >
+
+        <input
+            type="file"
+            id="galleryInput"
+            accept="image/*"
+            style="display:none;"
+        >
+
+
+        <!-- Extracted Text -->
+
+        <div class="extracted-section">
+
+            <h3 class="section-title">
+                Extracted Text
+            </h3>
+
+
+            <div class="text-box">
+
+                <p id="extractedText">
+                    Green Edge AI is designed to assist visually impaired individuals in their daily navigation and reading tasks using AI and voice assistance.
+                </p>
+
+
+                <i
+                    class="fa-regular fa-copy copy-icon"
+                    id="copyBtn"
+                    title="Copy Text">
+                </i>
+
+            </div>
+
+
+            <span
+                class="status-msg"
+                id="statusMsg">
+            </span>
+
+        </div>
+
+
+        <!-- Read Aloud -->
+
+        <button
+            class="primary-btn"
+            id="readAloudBtn">
+
+            <i
+                class="fa-solid fa-volume-high"
+                id="readIcon">
+            </i>
+
+            <span id="readBtnText">
+                Read Aloud
+            </span>
+
+        </button>
+
+    </main>
+
+
+    <!-- JavaScript -->
+
+    <script src="/js/doc1.js"></script>
+
+    <script src="/js/common.js"></script>
+
+    <script src="/js/voice_assistance.js"></script>
+
+</div>
+```
+
+</body>
+
+</html>
