@@ -1889,16 +1889,9 @@ def process_voice():
  
 if __name__ == "__main__":
 
-    cert = r"C:\mkcert\172.22.55.165+2.pem"
-    key = r"C:\mkcert\172.22.55.165+2-key.pem"
-
-    ssl = (cert, key) if os.path.exists(cert) and os.path.exists(key) else None
-
     app.run(
         host="0.0.0.0",
-        port=int(os.environ.get("PORT", 5000)),
-        debug=False,
-        threaded=True,
-        ssl_context=ssl
+        port=5001,
+        debug=False
     )
  
