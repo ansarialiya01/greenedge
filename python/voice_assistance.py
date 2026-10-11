@@ -8,10 +8,11 @@ CORS(app)
  
  
 # =====================================================
-# BASIC HELPERS
+# HELPERS
 # =====================================================
  
 def contains_any(command, phrases):
+    """True if the command contains any of the phrases as whole words."""
     clean = f" {re.sub(r'[^\w\s]', ' ', command.lower())} "
     clean = " ".join(clean.split())
  
@@ -26,10 +27,8 @@ def contains_any(command, phrases):
  
 def extract_call_target(command):
     """
-    Examples:
-        call mom
-        call my guardian
-        make a call to dad
+    Pulls the contact name out of a call command.
+    Examples: "call mom", "call my guardian", "make a call to dad"
     """
  
     text = re.sub(r"[^\w\s]", " ", command.lower())
@@ -55,6 +54,22 @@ def extract_call_target(command):
     return target
  
  
+def reply(message, session_state, action="speak_and_listen", **extra):
+    """Builds a standard JSON response for the frontend."""
+ 
+    payload = {
+        "success": True,
+        "action": action,
+        "message": message,
+        "session_state": session_state,
+        "is_active": True
+    }
+ 
+    payload.update(extra)
+ 
+    return jsonify(payload)
+ 
+ 
 # =====================================================
 # EMERGENCY NUMBERS
 # =====================================================
@@ -69,9 +84,8 @@ EMERGENCY_NUMBERS = {
  
 def phone_call_response(target, session_state):
     """
-    Phone par call:
-    emergency number -> direct number
-    normal contact -> JS contact name handle karega
+    Emergency services are dialed directly by number.
+    Any other name is sent to the frontend, which looks up the contact.
     """
  
     if target in EMERGENCY_NUMBERS:
@@ -101,9 +115,10 @@ def phone_call_response(target, session_state):
  
  
 # =====================================================
-# PHONE NUMBER DIGIT HANDLING
+# PHONE NUMBER DIGITS
 # =====================================================
  
+# Spoken words (English and Hindi, plus common mis-hearings) mapped to digits
 SPOKEN_DIGITS = {
     "zero": "0", "oh": "0", "o": "0", "shunya": "0", "jero": "0", "sifar": "0",
     "one": "1", "won": "1", "ek": "1", "van": "1",
@@ -118,7 +133,6 @@ SPOKEN_DIGITS = {
     "nine": "9", "nau": "9", "no": "9", "now": "9", "nein": "9", "naine": "9",
 }
  
- 
 REPEAT_WORDS = {
     "double": 2,
     "triple": 3
@@ -127,11 +141,8 @@ REPEAT_WORDS = {
  
 def extract_digits(text):
     """
-    Examples:
-        9 5 0
-        95037
-        nine five zero
-        double nine
+    Converts speech into digits.
+    Examples: "9 5 0", "95037", "nine five zero", "double nine"
     """
  
     out = ""
@@ -164,21 +175,14 @@ def spaced(digits):
  
 def collect_phone(cmd, session_state, field, confirm_step):
     """
-    Phone number ek-ek ya multiple digits mein leta hai.
- 
-    10 digits complete hone par:
-    number confirm hota hai.
- 
-    Contact 2 ke case mein:
-    first contact ke number se duplicate check hota hai.
+    Collects a phone number a few digits at a time.
+    Once 10 digits are complete, asks the user to confirm.
+    For the second contact, rejects a number equal to the first contact's.
     """
  
     digits = session_state.get("digits", "")
  
-    # -------------------------------------------------
-    # CLEAR
-    # -------------------------------------------------
- 
+    # Clear everything
     if contains_any(cmd, [
         "clear",
         "start over",
@@ -195,10 +199,7 @@ def collect_phone(cmd, session_state, field, confirm_step):
             val=""
         )
  
-    # -------------------------------------------------
-    # DELETE LAST DIGIT
-    # -------------------------------------------------
- 
+    # Delete the last digit
     if contains_any(cmd, [
         "delete",
         "undo",
@@ -217,10 +218,7 @@ def collect_phone(cmd, session_state, field, confirm_step):
             val=digits
         )
  
-    # -------------------------------------------------
-    # REPEAT
-    # -------------------------------------------------
- 
+    # Read back what has been collected
     if contains_any(cmd, [
         "repeat",
         "read",
@@ -239,10 +237,7 @@ def collect_phone(cmd, session_state, field, confirm_step):
             session_state
         )
  
-    # -------------------------------------------------
-    # NEW DIGITS
-    # -------------------------------------------------
- 
+    # New digits
     new = extract_digits(cmd)
  
     if not new:
@@ -253,7 +248,7 @@ def collect_phone(cmd, session_state, field, confirm_step):
  
     combined = digits + new
  
-    # Mobile number 0 se start nahi hona chahiye
+    # Mobile numbers cannot start with zero
     combined = combined.lstrip("0")
  
     if not combined:
@@ -263,16 +258,9 @@ def collect_phone(cmd, session_state, field, confirm_step):
             session_state
         )
  
-    # -------------------------------------------------
-    # 91 + 10 DIGITS SUPPORT
-    # -------------------------------------------------
- 
+    # Accept a +91 prefix followed by 10 digits
     if len(combined) == 12 and combined.startswith("91"):
         combined = combined[2:]
- 
-    # -------------------------------------------------
-    # MORE THAN 10 DIGITS
-    # -------------------------------------------------
  
     if len(combined) > 10:
  
@@ -284,13 +272,10 @@ def collect_phone(cmd, session_state, field, confirm_step):
  
     session_state["digits"] = combined
  
-    # -------------------------------------------------
-    # 10 DIGITS COMPLETE
-    # -------------------------------------------------
- 
+    # 10 digits complete
     if len(combined) == 10:
  
-        # Contact 2 ko Contact 1 ke same number se bachana
+        # Second contact must differ from the first
         if (
             field in ("contact2_phone", "contactPhone2")
             and combined == session_state.get("c1_phone", "")[-10:]
@@ -307,10 +292,7 @@ def collect_phone(cmd, session_state, field, confirm_step):
                 val=""
             )
  
-        # Temporary number
         session_state["temp_phone"] = combined
- 
-        # Confirmation step
         session_state["step"] = confirm_step
  
         return reply(
@@ -321,10 +303,7 @@ def collect_phone(cmd, session_state, field, confirm_step):
             val=combined
         )
  
-    # -------------------------------------------------
-    # MORE DIGITS REQUIRED (jo suna wo wapas bolo)
-    # -------------------------------------------------
- 
+    # Still incomplete: read back what was just heard
     return reply(
         spaced(new),
         session_state,
@@ -340,11 +319,8 @@ def collect_phone(cmd, session_state, field, confirm_step):
  
 def clean_name(text):
     """
-    Examples:
-        my name is Riya
-        name is Mom
-        her name is Papa
-        I am Riya
+    Strips filler words from a spoken name.
+    Examples: "my name is Riya", "her name is Papa", "I am Riya"
     """
  
     text = re.sub(r"[^\w\s]", " ", text.lower())
@@ -359,7 +335,7 @@ def clean_name(text):
  
  
 # =====================================================
-# CONFIRMATION WORDS
+# WORD LISTS
 # =====================================================
  
 YES_WORDS = [
@@ -372,7 +348,6 @@ YES_WORDS = [
     "sure"
 ]
  
- 
 NO_WORDS = [
     "no",
     "incorrect",
@@ -380,12 +355,7 @@ NO_WORDS = [
     "change"
 ]
  
- 
-# =====================================================
-# DONE WORDS
-# =====================================================
- 
-# User specifically wants "Done" before saving.
+# The user must say one of these before contacts are saved
 DONE_WORDS = [
     "done",
     "finish",
@@ -395,11 +365,6 @@ DONE_WORDS = [
     "continue",
     "submit"
 ]
- 
- 
-# =====================================================
-# SOS COMMANDS
-# =====================================================
  
 SOS_WORDS = [
     "sos",
@@ -416,11 +381,6 @@ SOS_WORDS = [
     "danger",
     "sound siren"
 ]
- 
- 
-# =====================================================
-# CHANGE EMERGENCY CONTACTS COMMANDS
-# =====================================================
  
 CHANGE_NUMBER_PHRASES = [
     "change number",
@@ -457,22 +417,19 @@ CHANGE_NUMBER_PHRASES = [
  
  
 # =====================================================
-# RESPONSE HELPER
+# WELCOME MESSAGE FOR NEW USERS
 # =====================================================
  
-def reply(message, session_state, action="speak_and_listen", **extra):
- 
-    payload = {
-        "success": True,
-        "action": action,
-        "message": message,
-        "session_state": session_state,
-        "is_active": True
-    }
- 
-    payload.update(extra)
- 
-    return jsonify(payload)
+WELCOME_MESSAGE = (
+    "Welcome to GreenEdge. Here is what I can do for you. "
+    "Navigation uses your camera to warn you about vehicles, "
+    "Document Reader scans printed text and reads it aloud. "
+    "Location tells you where you are and gives walking directions. "
+    "Emergency SOS alerts your emergency contacts with your location. "
+    "In Settings, you can change your emergency contacts anytime. "
+    "You can also call your contacts or the police by voice. "
+    "Say help whenever you want to hear these commands again."
+)
  
  
 # =====================================================
@@ -506,10 +463,7 @@ def process_voice():
         )
     )
  
-    # -------------------------------------------------
-    # CONVERSATIONAL MEMORY
-    # -------------------------------------------------
- 
+    # Conversation state sent back and forth with the frontend
     session_state = data.get(
         "session_state",
         {}
@@ -519,6 +473,29 @@ def process_voice():
         "step",
         "idle"
     )
+ 
+    # -------------------------------------------------
+    # WELCOME EVENT
+    # The frontend sends this once when a new user lands on the home page.
+    # -------------------------------------------------
+ 
+    if data.get("event") == "welcome":
+ 
+        if data.get("is_new_user") and current_page == "/home":
+ 
+            return jsonify({
+                "success": True,
+                "action": "speak_only",
+                "message": WELCOME_MESSAGE,
+                "session_state": session_state,
+                "is_active": is_active
+            })
+ 
+        return jsonify({
+            "success": False,
+            "action": "none",
+            "message": ""
+        })
  
     if not raw_command:
  
@@ -534,10 +511,6 @@ def process_voice():
         f"Page: {current_page} | "
         f"Step: {step}"
     )
- 
-    # =================================================
-    # COMMAND LISTS
-    # =================================================
  
     wake_words = [
         "hey greenedge",
@@ -595,6 +568,7 @@ def process_voice():
  
     cmd = raw_command
  
+    # Remove the wake word so only the actual command remains
     if woke_up:
  
         for w in sorted(
@@ -641,6 +615,7 @@ def process_voice():
                 "change emergency contacts"
             ]
  
+            # Wake word alone, or with an unrelated phrase
             if (
                 not cmd
                 or not contains_any(cmd, valid_intents)
@@ -693,10 +668,7 @@ def process_voice():
             ""
         )
  
-        # ---------------------------------------------
-        # NEW USER NAME
-        # ---------------------------------------------
- 
+        # New user: own name
         if step == "ask_name":
  
             name = clean_name(cmd)
@@ -720,10 +692,7 @@ def process_voice():
                 val=name
             )
  
-        # ---------------------------------------------
-        # CONTACT 1 NAME
-        # ---------------------------------------------
- 
+        # Contact 1: name
         if step == "ask_c1_name":
  
             name = clean_name(cmd)
@@ -749,10 +718,7 @@ def process_voice():
                 val=name
             )
  
-        # ---------------------------------------------
-        # CONTACT 1 PHONE
-        # ---------------------------------------------
- 
+        # Contact 1: phone
         if step == "ask_c1_phone":
  
             return collect_phone(
@@ -762,10 +728,7 @@ def process_voice():
                 "confirm_c1_phone"
             )
  
-        # ---------------------------------------------
-        # CONTACT 1 PHONE CONFIRM
-        # ---------------------------------------------
- 
+        # Contact 1: confirm phone
         if step == "confirm_c1_phone":
  
             if contains_any(
@@ -814,10 +777,7 @@ def process_voice():
                 session_state
             )
  
-        # ---------------------------------------------
-        # CONTACT 2 NAME
-        # ---------------------------------------------
- 
+        # Contact 2: name
         if step == "ask_c2_name":
  
             name = clean_name(cmd)
@@ -843,10 +803,7 @@ def process_voice():
                 val=name
             )
  
-        # ---------------------------------------------
-        # CONTACT 2 PHONE
-        # ---------------------------------------------
- 
+        # Contact 2: phone
         if step == "ask_c2_phone":
  
             return collect_phone(
@@ -856,10 +813,7 @@ def process_voice():
                 "confirm_c2_phone"
             )
  
-        # ---------------------------------------------
-        # CONTACT 2 PHONE CONFIRM
-        # ---------------------------------------------
- 
+        # Contact 2: confirm phone
         if step == "confirm_c2_phone":
  
             if contains_any(
@@ -907,10 +861,7 @@ def process_voice():
                 session_state
             )
  
-        # ---------------------------------------------
-        # WAIT FOR DONE
-        # ---------------------------------------------
- 
+        # Wait for "Done" before saving
         if step == "awaiting_contacts_done":
  
             if contains_any(
@@ -989,10 +940,7 @@ def process_voice():
                 session_state
             )
  
-        # ---------------------------------------------
-        # KNOWN USER
-        # ---------------------------------------------
- 
+        # Returning user on the login page
         if login_mode == "known":
  
             if contains_any(
@@ -1045,10 +993,7 @@ def process_voice():
     # 5. CHANGE EMERGENCY CONTACTS
     # =================================================
  
-    # ---------------------------------------------
-    # OPEN EMERGENCY CONTACTS PAGE
-    # ---------------------------------------------
- 
+    # Open the emergency contacts page from any other page
     if (
         is_active
         and step == "idle"
@@ -1074,15 +1019,8 @@ def process_voice():
             url="/change-guardian"
         )
  
-    # ---------------------------------------------
-    # EMERGENCY CONTACT PAGE
-    # ---------------------------------------------
- 
+    # Voice flow on the emergency contacts page
     if current_page == "/change-guardian" and is_active:
- 
-        # -----------------------------------------
-        # CANCEL / BACK
-        # -----------------------------------------
  
         if contains_any(
             cmd,
@@ -1106,10 +1044,7 @@ def process_voice():
                 url="/setting"
             )
  
-        # -----------------------------------------
-        # CONTACT 1 NAME
-        # -----------------------------------------
- 
+        # Contact 1: name
         if step == "ec_ask_c1_name":
  
             name = clean_name(cmd)
@@ -1135,10 +1070,7 @@ def process_voice():
                 val=name
             )
  
-        # -----------------------------------------
-        # CONTACT 1 PHONE
-        # -----------------------------------------
- 
+        # Contact 1: phone
         if step == "ec_ask_c1_phone":
  
             return collect_phone(
@@ -1148,10 +1080,7 @@ def process_voice():
                 "ec_confirm_c1_phone"
             )
  
-        # -----------------------------------------
-        # CONTACT 1 PHONE CONFIRM
-        # -----------------------------------------
- 
+        # Contact 1: confirm phone
         if step == "ec_confirm_c1_phone":
  
             if contains_any(
@@ -1201,10 +1130,7 @@ def process_voice():
                 session_state
             )
  
-        # -----------------------------------------
-        # CONTACT 2 NAME
-        # -----------------------------------------
- 
+        # Contact 2: name
         if step == "ec_ask_c2_name":
  
             name = clean_name(cmd)
@@ -1230,10 +1156,7 @@ def process_voice():
                 val=name
             )
  
-        # -----------------------------------------
-        # CONTACT 2 PHONE
-        # -----------------------------------------
- 
+        # Contact 2: phone
         if step == "ec_ask_c2_phone":
  
             return collect_phone(
@@ -1243,10 +1166,7 @@ def process_voice():
                 "ec_confirm_c2_phone"
             )
  
-        # -----------------------------------------
-        # CONTACT 2 PHONE CONFIRM
-        # -----------------------------------------
- 
+        # Contact 2: confirm phone
         if step == "ec_confirm_c2_phone":
  
             if contains_any(
@@ -1294,10 +1214,7 @@ def process_voice():
                 session_state
             )
  
-        # -----------------------------------------
-        # WAIT FOR DONE
-        # -----------------------------------------
- 
+        # Wait for "Done" before saving
         if step == "ec_awaiting_done":
  
             if contains_any(
@@ -1325,7 +1242,6 @@ def process_voice():
                     ""
                 )
  
-                # Validate
                 if not all([
                     contact1_name,
                     contact1_phone,
@@ -1339,7 +1255,6 @@ def process_voice():
                         session_state
                     )
  
-                # Same number check
                 if contact1_phone == contact2_phone:
  
                     session_state["step"] = "ec_ask_c2_phone"
@@ -1354,11 +1269,7 @@ def process_voice():
                         val=""
                     )
  
-                # ---------------------------------
-                # DO NOT SAVE IN PYTHON.
-                # JS will call Node API.
-                # ---------------------------------
- 
+                # Saving is not done here: the frontend JS calls the Node API
                 session_state["step"] = "idle"
  
                 return reply(
@@ -1605,10 +1516,9 @@ def process_voice():
  
     # =================================================
     # 13A. NAVIGATION CAMERA
-    # IMPORTANT: ye "13. SMART NAVIGATION" se PEHLE hona chahiye.
-    # Pehle ye neeche tha, isliye "start navigation camera" / "start walking"
-    # jaise commands 13 mein match ho jaate the (jo sirf /Snavigation kholta hai,
-    # camera nahi) aur camera on nahi hota tha.
+    # Must stay above "13. SMART NAVIGATION". Otherwise commands like
+    # "start navigation camera" match section 13, which only opens the
+    # page and never turns the camera on.
     # =================================================
  
     if (
@@ -1725,7 +1635,7 @@ def process_voice():
         })
  
     # =================================================
-    # 16. LOCATION
+    # 15. LOCATION
     # =================================================
  
     if contains_any(
@@ -1759,7 +1669,7 @@ def process_voice():
         })
  
     # =================================================
-    # 17. SETTINGS
+    # 16. SETTINGS
     # =================================================
  
     if contains_any(
@@ -1781,7 +1691,7 @@ def process_voice():
         })
  
     # =================================================
-    # 18. PROFILE
+    # 17. PROFILE
     # =================================================
  
     if contains_any(
@@ -1802,7 +1712,7 @@ def process_voice():
         })
  
     # =================================================
-    # 19. SCAN
+    # 18. SCAN
     # =================================================
  
     if contains_any(
@@ -1824,7 +1734,7 @@ def process_voice():
         })
  
     # =================================================
-    # 20. UPLOAD
+    # 19. UPLOAD
     # =================================================
  
     if contains_any(
@@ -1847,7 +1757,7 @@ def process_voice():
         })
  
     # =================================================
-    # 21. READ ALOUD
+    # 20. READ ALOUD
     # =================================================
  
     if contains_any(
@@ -1870,7 +1780,7 @@ def process_voice():
         })
  
     # =================================================
-    # 22. UNKNOWN COMMAND
+    # 21. UNKNOWN COMMAND
     # =================================================
  
     return jsonify({
@@ -1888,7 +1798,7 @@ def process_voice():
 # =====================================================
  
 if __name__ == "__main__":
-
+ 
     app.run(
         host="0.0.0.0",
         port=5001,

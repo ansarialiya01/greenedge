@@ -15,42 +15,42 @@ console.log("WHATSAPP_ACCESS_TOKEN exists:", !!process.env.WHATSAPP_ACCESS_TOKEN
  
 const app = express();
  
-// Host (Render etc.) ke proxy ke peeche HTTPS aur cookies sahi chalein
+// Needed when the app runs behind a hosting proxy (Render etc.) so HTTPS and cookies work
 app.set("trust proxy", 1);
  
-// Host jo port de wahi use hoga, laptop par 3000
+// Hosting platforms provide PORT; locally it is 3000
 const PORT = process.env.PORT || 3000;
  
-// WhatsApp template settings (Meta mein jo naam aur language banayi thi)
+// WhatsApp template settings (name and language as created in Meta)
 const SOS_TEMPLATE_NAME = "emergency_sos_alert";
 const SOS_TEMPLATE_LANGUAGE = "en_US";
  
-// Live tracking: contacts ko jo link jayega uska public base URL.
-// .env mein likho, jaise: PUBLIC_BASE_URL=https://abc123.trycloudflare.com
+// Public base URL used in the live tracking link sent to contacts.
+// Set it in .env, e.g. PUBLIC_BASE_URL=https://abc123.trycloudflare.com
 const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || "")
     .trim()
     .replace(/\/+$/, "");
  
-// Tracking link itne ghante baad apne aap band ho jata hai
+// Tracking links stop working after this many hours
 const TRACKING_MAX_HOURS = 6;
  
 // =====================================================
-// HTTPS SSL CERTIFICATE
-// Laptop par mkcert files mile to HTTPS chalega.
-// Server par ye files nahi hoti, tab normal HTTP chalega
-// (host HTTPS khud lagata hai).
+// HTTPS CERTIFICATE
+// If the mkcert files exist (laptop), the server runs on HTTPS.
+// On a host they do not exist, so it runs plain HTTP
+// (the host provides HTTPS itself).
 // =====================================================
  
 let sslOptions = null;
  
 try {
     sslOptions = {
-        key: fs.readFileSync("C:\\mkcert\\172.22.55.165+2-key.pem"),
-        cert: fs.readFileSync("C:\\mkcert\\172.22.55.165+2.pem")
+        key: fs.readFileSync("C:\\mkcert\\10.76.182.165+2-key.pem"),
+        cert: fs.readFileSync("C:\\mkcert\\10.76.182.165+2.pem")
     };
 }
 catch (error) {
-    console.log("mkcert files nahi mili: normal HTTP server chalega (host HTTPS khud lagata hai).");
+    console.log("mkcert files not found: running as a normal HTTP server (the host provides HTTPS).");
 }
  
  
@@ -79,9 +79,9 @@ app.set("view engine", "ejs");
 app.use(express.static("public"));
  
 // =====================================================
-// DEVICE YAAD RAKHNA (bina ID / password ke)
-// Naya user banne par browser mein ek signed cookie lagti hai.
-// Agli baar server cookie se user pehchan leta hai.
+// REMEMBER THE DEVICE (no ID or password)
+// A signed cookie is set when a user signs up, and the server
+// recognizes the user from it on the next visit.
 // =====================================================
  
 const COOKIE_NAME = "ge_user";
@@ -100,7 +100,7 @@ function setUserCookie(res, userId) {
     });
 }
  
-// Session khatam ho gaya par cookie hai to session wapas bana do
+// Session expired but the cookie is still valid: restore the session
 app.use(async (req, res, next) => {
  
     if (!req.session.userId && req.signedCookies && req.signedCookies[COOKIE_NAME]) {
@@ -126,12 +126,8 @@ app.use(async (req, res, next) => {
     next();
 });
  
-// =====================================================
-// CHANGE EMERGENCY CONTACTS PAGE
-// (cookie wale middleware ke BAAD rakha hai, taaki session
-//  khatam hone par bhi cookie se user pehchana jaye)
-// =====================================================
- 
+// Must stay below the cookie middleware so the user is recognized
+// even after the session has expired
 app.get(["/change-contact", "/change-guardian"], (req, res) => {
     if (!req.session.userId) return res.redirect("/login");
     res.render("change_contact");
@@ -139,8 +135,8 @@ app.get(["/change-contact", "/change-guardian"], (req, res) => {
  
 // =====================================================
 // VOICE ASSISTANT PROXY (Browser -> Node -> Flask)
-// voice_assistance.py port 5001 par chalti hai
-// (5000 par object_detection.py hai, dono ek port par nahi chal sakte)
+// voice_assistance.py runs on port 5001
+// (object_detection.py uses 5000)
 // =====================================================
  
 const VOICE_PY_URL = process.env.VOICE_PY_URL || "http://127.0.0.1:5001/voice";
@@ -163,7 +159,7 @@ app.post("/api/voice-command", async (req, res) => {
         return res.status(response.status).json(data);
     }
     catch (error) {
-        // error.cause mein asli wajah hoti hai (jaise ECONNREFUSED)
+        // error.cause holds the real reason (e.g. ECONNREFUSED)
         console.error(
             "❌ Voice service error:",
             error.message,
@@ -202,7 +198,7 @@ function normalizeIndianNumber(phone) {
     return cleanPhone;
 }
  
-// User ke 2 contacts: [{ name, phone }] (sirf valid numbers wale)
+// Returns the user's contacts as [{ name, phone }], valid numbers only
 function getContacts(user) {
     return (user.contacts || [])
         .map(c => ({
@@ -283,8 +279,8 @@ async function sendWhatsAppMessage(
  
 // =====================================================
 // WHATSAPP CLOUD API: LOCATION PIN
-// (sirf tab jata hai jab contact ne pichle 24 ghante
-//  mein reply kiya ho, warna fail hona normal hai)
+// Only delivered if the contact replied within the last 24 hours,
+// so a failure here is normal.
 // =====================================================
  
 async function sendWhatsAppLocation(to, latitude, longitude) {
@@ -362,15 +358,15 @@ app.get("/test-whatsapp", async (req, res) => {
 });
  
 // =====================================================
-// HOME / PUBLIC ROUTES
+// PUBLIC ROUTES
 // =====================================================
  
 app.get("/", (req, res) => {
     res.render("splash");
 });
  
-// 8 digit ka unique ID database khud banata hai (user ko dikhta nahi).
-// Unique index ki wajah se duplicate kabhi insert nahi hota; takra jaye to nayi ID try hoti hai.
+// The database generates a unique 8-digit ID (never shown to the user).
+// A unique index prevents duplicates; on a collision a new ID is tried.
 async function createUser(name, contacts) {
  
     for (let attempt = 0; attempt < 10; attempt++) {
@@ -398,7 +394,7 @@ async function createUser(name, contacts) {
     throw new Error("Could not generate a unique user ID.");
 }
  
-// Form se aaye 2 contacts check karta hai
+// Validates the 2 contacts submitted from the form
 function readContacts(body) {
  
     const raw = [
@@ -427,7 +423,7 @@ function readContacts(body) {
     return { provided, contacts, error };
 }
  
-// Login page: pehchana hua user ho to "Welcome back", warna naye user ka form
+// Login page: "Welcome back" for a known user, the sign-up form otherwise
 async function renderLogin(req, res, error) {
  
     let knownUser = null;
@@ -456,7 +452,7 @@ app.get("/login", (req, res) => {
     renderLogin(req, res);
 });
  
-// "Not you?" - is device ko bhool jao, naya user banao
+// "Not you?": forget this device and start a new sign-up
 app.get("/switch-user", (req, res) => {
  
     res.clearCookie(COOKIE_NAME, COOKIE_OPTIONS);
@@ -467,9 +463,9 @@ app.get("/switch-user", (req, res) => {
 });
  
 // =====================================================
-// LOGIN / SIGN-UP (ek hi page, bina password, bina ID)
-// - Naya user: name + dono contacts compulsory, account ban jata hai
-// - Pehchana hua user: bas CONTINUE; contacts bhare hon to update ho jate hain
+// LOGIN / SIGN-UP (one page, no password, no ID)
+// - New user: name and both contacts are required, an account is created
+// - Known user: just CONTINUE; contacts are updated if they were filled in
 // Form fields: name, contact1_name, contact1_phone,
 //              contact2_name, contact2_phone
 // =====================================================
@@ -480,14 +476,14 @@ app.post("/login", async (req, res) => {
  
     try {
  
-        // new_account=1: pehchana hua device hone par bhi bilkul naya account banao
+        // new_account=1 creates a brand new account even on a known device
         const forceNew = String(req.body.new_account || "") === "1";
  
         const known = (!forceNew && req.session.userId)
             ? await users().findOne({ userId: req.session.userId })
             : null;
  
-        // ---------- pehchana hua user ----------
+        // ---------- known user ----------
         if (known) {
  
             if (provided) {
@@ -505,7 +501,7 @@ app.post("/login", async (req, res) => {
             return res.redirect("/home");
         }
  
-        // ---------- naya user ----------
+        // ---------- new user ----------
         const name = String(req.body.name || "").trim().slice(0, 60);
  
         if (!name) {
@@ -520,6 +516,10 @@ app.post("/login", async (req, res) => {
  
         req.session.userId = userId;
         req.session.userName = name;
+ 
+        // The home page uses this once to introduce the app's features
+        req.session.isNewUser = true;
+ 
         setUserCookie(res, userId);
  
         console.log("🆕 New user created:", userId, name);
@@ -544,31 +544,26 @@ app.get("/home", (req, res) => {
         return res.redirect("/login");
     }
  
-    res.render("home");
+    // True only on the first visit after sign-up
+    const isNewUser = !!req.session.isNewUser;
+    delete req.session.isNewUser;
+ 
+    res.render("home", { isNewUser: isNewUser });
 });
  
 // =====================================================
-// PASSWORD NAHI HAI, isliye forgot/reset pages band
-// (purane links /login par bhej diye jaate hain)
+// There are no passwords, so the old password pages redirect to /login
 // =====================================================
  
 app.all(
-    ["/forgot-password", "/verify-otp", "/reset-password"],
+    ["/forgot-password", "/verify-otp", "/reset-password", "/register"],
     (req, res) => {
         res.redirect("/login");
     }
 );
  
 // =====================================================
-// REGISTER ab alag page nahi hai (login page par hi account ban jata hai)
-// =====================================================
- 
-app.all("/register", (req, res) => {
-    res.redirect("/login");
-});
- 
-// =====================================================
-// NAVIGATION & UI PAGES
+// UI PAGES
 // =====================================================
  
 app.get("/setting", (req, res) => res.render("setting"));
@@ -578,10 +573,6 @@ app.get("/Snavigation", (req, res) => res.render("Snavigation"));
 app.get("/documentR", (req, res) => res.render("documentR"));
 app.get("/documentS", (req, res) => res.render("documentS"));
 app.get("/navigate6", (req, res) => res.render("navigate6"));
- 
-// =====================================================
-// SOS PAGE
-// =====================================================
  
 app.get("/sos", (req, res) => {
  
@@ -598,7 +589,6 @@ app.get("/sos", (req, res) => {
  
 app.post("/api/update-emergency-contacts", async (req, res) => {
  
-    // Login check
     if (!req.session.userId) {
         return res.status(401).json({
             success: false,
@@ -608,7 +598,6 @@ app.post("/api/update-emergency-contacts", async (req, res) => {
  
     const contacts = req.body.contacts;
  
-    // Exactly 2 contacts required
     if (!Array.isArray(contacts) || contacts.length !== 2) {
         return res.status(400).json({
             success: false,
@@ -616,7 +605,6 @@ app.post("/api/update-emergency-contacts", async (req, res) => {
         });
     }
  
-    // Validate contacts
     const cleanContacts = [];
  
     for (const contact of contacts) {
@@ -646,7 +634,6 @@ app.post("/api/update-emergency-contacts", async (req, res) => {
         });
     }
  
-    // Prevent same number for both contacts
     if (cleanContacts[0].phone === cleanContacts[1].phone) {
         return res.status(400).json({
             success: false,
@@ -695,8 +682,8 @@ app.post("/api/update-emergency-contacts", async (req, res) => {
  
 // =====================================================
 // GET EMERGENCY CONTACTS
-// guardianName / guardianPhone = pehla contact
-// (purana frontend code na toote isliye)
+// guardianName / guardianPhone hold the first contact,
+// so older frontend code keeps working.
 // =====================================================
  
 app.get("/api/emergency-contact", async (req, res) => {
@@ -748,8 +735,8 @@ app.get("/api/emergency-contact", async (req, res) => {
 });
  
 // =====================================================
-// LIVE TRACKING (guardian ko live map link)
-// Sessions memory mein rehte hain (server restart par reset ho jaate hain)
+// LIVE TRACKING (live map link for the emergency contacts)
+// Sessions are kept in memory and reset when the server restarts.
 // =====================================================
  
 const sosSessions = new Map();
@@ -772,7 +759,7 @@ function parseCoords(body) {
     return { lat, lng, valid };
 }
  
-// Purane sessions saaf karo (har 10 minute mein)
+// Remove old sessions every 10 minutes
 setInterval(() => {
  
     const limit = (TRACKING_MAX_HOURS + 1) * 3600 * 1000;
@@ -787,13 +774,13 @@ setInterval(() => {
  
 if (!PUBLIC_BASE_URL) {
     console.warn(
-        "⚠️ PUBLIC_BASE_URL .env mein set nahi hai: live tracking band hai, " +
-        "contacts ko Google Maps ka fixed link jayega."
+        "⚠️ PUBLIC_BASE_URL is not set in .env: live tracking is off, " +
+        "contacts will get a fixed Google Maps link."
     );
 }
  
 // =====================================================
-// SOS API (dono contacts ko WhatsApp)
+// SOS API (WhatsApp alert to both contacts)
 // =====================================================
  
 app.post("/api/sos", async (req, res) => {
@@ -804,10 +791,6 @@ app.post("/api/sos", async (req, res) => {
             message: "Please login first."
         });
     }
- 
-    // ---------------------------------------------
-    // VALIDATE GPS
-    // ---------------------------------------------
  
     const { lat, lng, valid } = parseCoords(req.body);
  
@@ -838,16 +821,13 @@ app.post("/api/sos", async (req, res) => {
             });
         }
  
-        // Apna phone/naam ab zaroori nahi: na ho to userId aur "Not available"
+        // The user's own phone is optional: fall back to "Not available"
         const userNumber = normalizeIndianNumber(user.phone);
         const userPhone = userNumber.length >= 11 ? "+" + userNumber : "Not available";
         const userName = user.name || user.userId;
         const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
  
-        // -----------------------------------------
-        // Live tracking session (agar PUBLIC_BASE_URL set hai)
-        // -----------------------------------------
- 
+        // Live tracking session (only if PUBLIC_BASE_URL is set)
         let token = null;
         let trackingEnabled = false;
         let contactLink = mapLink;
@@ -880,11 +860,8 @@ app.post("/api/sos", async (req, res) => {
         console.log("Live tracking:", trackingEnabled);
         console.log("========================================\n");
  
-        // -----------------------------------------
-        // Dono contacts ko ek saath bhejo.
-        // Ek fail ho to dusre ko phir bhi jayega.
-        // -----------------------------------------
- 
+        // Send to both contacts at the same time.
+        // If one fails, the other still gets the alert.
         const results = await Promise.all(
             contacts.map(async (contact) => {
  
@@ -915,7 +892,7 @@ app.post("/api/sos", async (req, res) => {
                     return result;
                 }
  
-                // Location pin bonus hai, fail ho to SOS phir bhi success
+                // The location pin is a bonus: the SOS still succeeds if it fails
                 try {
  
                     await sendWhatsAppLocation(contact.phone, lat, lng);
@@ -938,7 +915,7 @@ app.post("/api/sos", async (req, res) => {
  
         if (delivered.length === 0) {
  
-            // Kisi ko nahi gaya, to tracking session bekaar hai
+            // Nobody received it, so the tracking session is useless
             if (token) sosSessions.delete(token);
  
             return res.status(500).json({
@@ -976,7 +953,7 @@ app.post("/api/sos", async (req, res) => {
 });
  
 // =====================================================
-// SOS LIVE LOCATION UPDATE (user ka phone har 5 second mein bhejta hai)
+// SOS LIVE LOCATION UPDATE (the user's phone sends it every 5 seconds)
 // =====================================================
  
 app.post("/api/sos/update", (req, res) => {
@@ -1006,7 +983,7 @@ app.post("/api/sos/update", (req, res) => {
 });
  
 // =====================================================
-// SOS STOP (user ne SOS cancel kiya)
+// SOS STOP (the user canceled the SOS)
 // =====================================================
  
 app.post("/api/sos/stop", (req, res) => {
@@ -1031,8 +1008,8 @@ app.post("/api/sos/stop", (req, res) => {
 });
  
 // =====================================================
-// PUBLIC TRACKING PAGE (contacts ke liye, login nahi chahiye)
-// Token 32 random hex characters ka hai, andaza nahi lag sakta
+// PUBLIC TRACKING PAGE (for emergency contacts, no login needed)
+// The token is 32 random hex characters and cannot be guessed.
 // =====================================================
  
 app.get("/track/:token", (req, res) => {
@@ -1068,9 +1045,9 @@ app.get("/api/track/:token", (req, res) => {
 });
  
 // =====================================================
-// PYTHON VOICE SCRIPTS (laptop ka mic/speaker use karte hain)
-// navigation.py aur calling.py dono ek hi mic use karte hain,
-// isliye ek time par sirf ek script chalegi
+// PYTHON VOICE SCRIPTS (use the laptop's mic and speaker)
+// navigation.py and calling.py share the same mic,
+// so only one script runs at a time.
 // =====================================================
  
 let pyProcess = null;
@@ -1114,7 +1091,7 @@ function runPythonScript(scriptName, label, res, startedMessage, extraEnv = {}) 
     return res.send(startedMessage);
 }
  
-// Phone se aayi request par laptop ka mic/speaker nahi chalna chahiye
+// Requests from a phone must not start the laptop's mic and speaker
 function isPhoneRequest(req) {
     return /Android|iPhone|iPad|iPod/i.test(req.headers["user-agent"] || "");
 }
@@ -1138,7 +1115,7 @@ app.get("/location", (req, res) => {
  
 app.get("/call", async (req, res) => {
  
-    // Call route par login zaroori, taaki koi bhi URL kholke call na laga sake
+    // Login is required so nobody can start a call just by opening the URL
     if (!req.session.userId) {
         return res.status(401).send("Please login first.");
     }
@@ -1158,10 +1135,10 @@ app.get("/call", async (req, res) => {
             return res.status(404).send("User not found.");
         }
  
-        // Is user ke 2 contacts calling.py ko do
+        // Pass this user's contacts to calling.py
         const contacts = getContacts(user);
  
-        // Voice command se naam aaya ho to (/call?to=mom)
+        // Contact name from a voice command (/call?to=mom)
         const callTarget = String(req.query.to || "").trim().slice(0, 50);
  
         return runPythonScript(
@@ -1184,8 +1161,8 @@ app.get("/call", async (req, res) => {
 });
  
 // =====================================================
-// START: pehle MongoDB, phir server
-// Laptop par (mkcert mile) HTTPS, deploy par normal HTTP
+// START: MongoDB first, then the server
+// HTTPS on the laptop (mkcert found), plain HTTP when deployed
 // =====================================================
  
 connectDB()
@@ -1197,7 +1174,7 @@ connectDB()
                 PORT,
                 "0.0.0.0",
                 () => {
-                    console.log(`🚀 HTTPS Server running at https://172.22.55.165:${PORT}`);
+                    console.log(`🚀 HTTPS Server running at https://10.76.182.165:${PORT}`);
                 }
             );
  

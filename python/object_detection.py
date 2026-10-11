@@ -13,11 +13,11 @@ CORS(app)
  
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
  
-# Ek time pe ek hi frame process ho (model aur global data shared hain)
+# Only one frame is processed at a time (models and global data are shared)
 frame_lock = threading.Lock()
  
-# True rakho to terminal mein har detect hui cheez dikhegi ("RAW: person 0.82 2.1").
-# Sab theek chalne lage to False kar do.
+# Print every raw detection in the terminal, e.g. "RAW: person 0.82 2.1 m".
+# Set to False once everything works.
 DEBUG_RAW = True
  
 # =========================================================
@@ -26,8 +26,8 @@ DEBUG_RAW = True
  
 model = YOLO("yolov8s.pt")
  
-# Pothole model (optional). Agar pothole.pt file is folder mein nahi hai
-# to server bina pothole detection ke chalega.
+# Optional pothole model. If pothole.pt is not in this folder,
+# the server runs without pothole detection.
 POTHOLE_MODEL_PATH = os.path.join(BASE_DIR, "pothole.pt")
 pothole_model = None
  
@@ -38,7 +38,7 @@ else:
     print("pothole.pt not found - pothole detection OFF")
  
 # =========================================================
-# NAVIGATION SETTINGS
+# SETTINGS
 # =========================================================
  
 NAVIGATION_OBJECTS = {
@@ -60,28 +60,19 @@ NAVIGATION_OBJECTS = {
  
 MIN_DETECTION_CONFIDENCE = 0.25
  
-# =========================================================
-# DISTANCE SETTINGS
-# =========================================================
+# Objects farther than this are ignored.
+# Distance is only used for filtering, it is never spoken.
+ALERT_DISTANCE = 2.0
  
-LONG_RANGE_OBJECTS = {
-    "bicycle",
-    "car",
-    "motorcycle",
-    "bus",
-    "truck",
-}
- 
-# Pehle 3.0 aur 1.0 tha: itna chhota ki zyadatar objects filter ho jaate the
-LONG_RANGE_MAX_DISTANCE = 8.0
-SHORT_RANGE_MAX_DISTANCE = 4.0
+# Vehicles move fast, so they are detected from farther away
+VEHICLE_ALERT_DISTANCE = 4.0
  
 # Pothole settings
-POTHOLE_MAX_DISTANCE = 3.0
+POTHOLE_MAX_DISTANCE = 2.0
 POTHOLE_CONFIDENCE = 0.35
 POTHOLE_EVERY_N_FRAMES = 2
  
-# Real object width (meters) - distance estimate ke liye
+# Real object width in meters, used for distance estimation
 OBJECT_REAL_WIDTH = {
     "person": 0.5,
     "bicycle": 0.6,
@@ -100,11 +91,11 @@ OBJECT_REAL_WIDTH = {
     "pothole": 0.6,
 }
  
-# 640px wide frame ke liye focal length. Calibrate karne ke liye:
-# ek person 2 meter door khada karo aur distance dekho, phir isse adjust karo.
+# Focal length for a 640px wide frame. To calibrate: place a person at a
+# known distance, read the distance printed in the terminal, then adjust.
 FOCAL_LENGTH_PX = 600
  
-# Threat priority weights (zyada = zyada khatarnak)
+# Threat priority weights (higher = more dangerous)
 THREAT_WEIGHT = {
     "car": 3.0,
     "bus": 3.0,
@@ -119,13 +110,19 @@ THREAT_WEIGHT = {
  
 VEHICLES = {"car", "bus", "truck", "motorcycle"}
  
+# Objects whose movement direction is reported
+MOVING_OBJECTS = {"car", "bus", "truck", "motorcycle", "bicycle"}
+ 
+# Motion detection settings
+TRACK_MAX_AGE = 1.5        # seconds a previous detection can still be matched
+APPROACH_GROWTH = 1.10     # box grew by 10% = object is getting closer
+LATERAL_SHIFT = 0.04       # moved sideways by more than 4% of frame width
+ 
 # Voice settings
 ANNOUNCEMENT_REPEAT_SECONDS = 3.0
-DISTANCE_CHANGE_THRESHOLD = 0.3
-MIN_DISTANCE_UPDATE_SECONDS = 1.0
  
 # =========================================================
-# NAVIGATION DATA
+# STATE
 # =========================================================
  
 navigation_data = {
@@ -144,17 +141,20 @@ navigation_data = {
     "annotated_frame": None
 }
  
-# =========================================================
-# VOICE STATE
-# =========================================================
- 
 last_announced_at = {}
  
 frame_counter = 0
 cached_potholes = []
+prev_tracks = []
+ 
+SIDE_TEXT = {
+    "Left": "on your left",
+    "Right": "on your right",
+    "Center": "ahead",
+}
  
 # =========================================================
-# HELPERS: DISTANCE, ZONES, THREAT, SAFE DIRECTION
+# HELPERS
 # =========================================================
  
 def estimate_distance(label, box_width, frame_width):
@@ -173,7 +173,7 @@ def get_position(x1, x2, frame_width):
  
  
 def get_zones(x1, x2, frame_width):
-    """Chaude object kai zones block karte hain (jaise car Center + Right)."""
+    """Wide objects can block several zones (e.g. a car in Center + Right)."""
     third = frame_width / 3
     min_overlap = 0.2 * third
     zones = []
@@ -196,8 +196,14 @@ def threat_score(item):
     return (weight * center_bonus) / distance
  
  
+def priority_key(item):
+    """Vehicles always come first, then sort by threat score."""
+    is_vehicle = item["name"] in MOVING_OBJECTS
+    return (1 if is_vehicle else 0, threat_score(item))
+ 
+ 
 def get_safe_direction(detections):
-    """Return: Straight / Left / Right / Stop"""
+    """Returns: Straight / Left / Right / Stop"""
  
     nearest = {"Left": None, "Center": None, "Right": None}
  
@@ -209,25 +215,113 @@ def get_safe_direction(detections):
             if nearest[z] is None or d["distance"] < nearest[z]:
                 nearest[z] = d["distance"]
  
-    # Beech ka raasta khali hai
     if nearest["Center"] is None:
         return "Straight"
  
-    left_free = nearest["Left"] is None
-    right_free = nearest["Right"] is None
- 
-    if left_free:
+    if nearest["Left"] is None:
         return "Left"
-    if right_free:
+    if nearest["Right"] is None:
         return "Right"
  
-    # Dono side bhi blocked: jis side obstacle zyada door ho
+    # Both sides blocked: go toward the side with the farther obstacle
     if nearest["Left"] > nearest["Right"]:
         return "Left"
     if nearest["Right"] > nearest["Left"]:
         return "Right"
  
     return "Stop"
+ 
+ 
+# =========================================================
+# MOTION TRACKING
+# =========================================================
+ 
+def update_motion(detections, now, frame_width):
+    """
+    Compares with the previous frame and sets d["motion"] to:
+    approaching / left_to_right / right_to_left / None
+    """
+ 
+    global prev_tracks
+ 
+    new_tracks = []
+    used = set()
+ 
+    for d in detections:
+ 
+        d["motion"] = None
+ 
+        if d["name"] not in MOVING_OBJECTS:
+            continue
+ 
+        b = d["box"]
+        cx = (b["x1"] + b["x2"]) / 2
+        w = max(b["x2"] - b["x1"], 1)
+ 
+        best = None
+        best_dist = None
+ 
+        for i, t in enumerate(prev_tracks):
+ 
+            if i in used:
+                continue
+            if t["name"] != d["name"]:
+                continue
+            if now - t["time"] > TRACK_MAX_AGE:
+                continue
+ 
+            dist = abs(t["cx"] - cx)
+ 
+            if dist < 0.25 * frame_width and (
+                best is None or dist < best_dist
+            ):
+                best = i
+                best_dist = dist
+ 
+        if best is not None:
+ 
+            used.add(best)
+            t = prev_tracks[best]
+ 
+            growth = w / max(t["w"], 1)
+            shift = (cx - t["cx"]) / frame_width
+ 
+            if growth >= APPROACH_GROWTH:
+                d["motion"] = "approaching"
+            elif shift >= LATERAL_SHIFT:
+                d["motion"] = "left_to_right"
+            elif shift <= -LATERAL_SHIFT:
+                d["motion"] = "right_to_left"
+ 
+        new_tracks.append({
+            "name": d["name"],
+            "cx": cx,
+            "w": w,
+            "time": now,
+        })
+ 
+    prev_tracks = new_tracks
+ 
+ 
+def motion_text(item):
+ 
+    motion = item.get("motion")
+    position = item.get("position", "Center")
+ 
+    if motion == "approaching":
+        return {
+            "Center": "coming straight towards you",
+            "Left": "coming from your left",
+            "Right": "coming from your right",
+        }.get(position, "coming towards you")
+ 
+    if motion == "left_to_right":
+        return "moving from left to right"
+ 
+    if motion == "right_to_left":
+        return "moving from right to left"
+ 
+    return ""
  
  
 # =========================================================
@@ -274,28 +368,21 @@ def detect_traffic_light_color(crop):
  
  
 # =========================================================
-# VOICE MESSAGE TEXT
+# VOICE MESSAGE
 # =========================================================
  
-def make_voice_message(item, safe_direction="Straight"):
+def make_voice_message(item, safe_direction="Straight", others=None):
  
     if not item:
         return ""
  
     name = item.get("name", "")
-    distance = item.get("distance", 0)
     position = item.get("position", "Center")
  
     if not name or name == "None":
         return ""
  
-    direction = {
-        "Left": "on your left",
-        "Right": "on your right",
-        "Center": "ahead"
-    }.get(position, "ahead")
- 
-    # ---------------- TRAFFIC LIGHT ----------------
+    direction = SIDE_TEXT.get(position, "ahead")
  
     if name == "traffic light":
  
@@ -307,28 +394,39 @@ def make_voice_message(item, safe_direction="Straight"):
             "Green": f"Green traffic light {direction}. Check traffic before crossing.",
         }.get(color, f"Traffic light {direction}. Color is unclear.")
  
-    # ---------------- NORMAL OBJECT ----------------
- 
     object_name = name.replace("_", " ").capitalize()
  
-    prefix = "Warning! " if name in VEHICLES else ""
+    prefix = "Warning! " if name in MOVING_OBJECTS else ""
  
-    message = f"{prefix}{object_name} {distance:.1f} meters {direction}. "
+    motion = motion_text(item)
+ 
+    if motion:
+        message = f"{prefix}{object_name} {motion}. "
+    else:
+        message = f"{prefix}{object_name} {direction}. "
  
     if safe_direction == "Left":
-        message += "Move left, path is clear on left."
+        message += "Move left."
     elif safe_direction == "Right":
-        message += "Move right, path is clear on right."
+        message += "Move right."
     elif safe_direction == "Stop":
         message += "No safe path. Please stop."
     else:
         message += "You can continue straight."
  
+    # Mention one more object if there is one
+    if others:
+        other = others[0]
+        if other["name"] != "traffic light":
+            other_name = other["name"].replace("_", " ")
+            other_side = SIDE_TEXT.get(other["position"], "ahead")
+            message += f" Also {other_name} {other_side}."
+ 
     return message
  
  
 # =========================================================
-# ENCODE PROCESSED FRAME
+# FRAME ENCODING
 # =========================================================
  
 def encode_frame(frame):
@@ -425,12 +523,6 @@ def process_frame(frame):
     global frame_counter
     global cached_potholes
  
-    # =====================================================
-    # YOLO DETECTION
-    # (tracker hata diya: mobile frames alag requests mein aate hain,
-    #  track_id kahin use nahi hota, aur bytetrack ko lap package chahiye)
-    # =====================================================
- 
     results = model(
         frame,
         verbose=False,
@@ -440,10 +532,6 @@ def process_frame(frame):
     detections = []
  
     frame_height, frame_width = frame.shape[:2]
- 
-    # =====================================================
-    # PROCESS EACH DETECTION
-    # =====================================================
  
     for box in results.boxes:
  
@@ -472,35 +560,27 @@ def process_frame(frame):
  
         box_width = max(x2 - x1, 1)
  
-        # ---------------- DISTANCE ----------------
- 
         distance = estimate_distance(label, box_width, frame_width)
  
         if DEBUG_RAW:
             print("RAW:", label, round(confidence, 2), distance, "m")
  
-        if label in LONG_RANGE_OBJECTS:
-            max_allowed_distance = LONG_RANGE_MAX_DISTANCE
+        if label in MOVING_OBJECTS:
+            max_allowed_distance = VEHICLE_ALERT_DISTANCE
         else:
-            max_allowed_distance = SHORT_RANGE_MAX_DISTANCE
+            max_allowed_distance = ALERT_DISTANCE
  
         if distance > max_allowed_distance:
             continue
  
-        # ---------------- POSITION ----------------
- 
         position = get_position(x1, x2, frame_width)
         zones = get_zones(x1, x2, frame_width)
- 
-        # ---------------- TRAFFIC LIGHT ----------------
  
         traffic_light_color = None
  
         if label == "traffic light":
             crop = frame[y1:y2, x1:x2]
             traffic_light_color = detect_traffic_light_color(crop)
- 
-        # ---------------- DETECTION DATA ----------------
  
         detections.append({
             "track_id": track_id,
@@ -514,8 +594,7 @@ def process_frame(frame):
             "nearby": True
         })
  
-        # ---------------- DRAW BOX ----------------
- 
+        # Draw box and label on the frame
         color = (0, 0, 255)
  
         cv2.rectangle(frame, (x1, y1), (x2, y2), color, 4)
@@ -554,10 +633,7 @@ def process_frame(frame):
             cv2.LINE_AA
         )
  
-    # =====================================================
-    # POTHOLES (har N frame pe, beech mein cache use hota hai)
-    # =====================================================
- 
+    # Run the pothole model every N frames and reuse the last result in between
     frame_counter += 1
  
     if pothole_model is not None:
@@ -569,31 +645,27 @@ def process_frame(frame):
  
         detections.extend(cached_potholes)
  
-    # =====================================================
-    # NEARBY OBJECTS
-    # =====================================================
+    update_motion(detections, time.monotonic(), frame_width)
  
     nearby_detections = [item for item in detections if item["nearby"]]
  
     safe_direction = "Straight"
- 
-    # =====================================================
-    # SELECT MOST DANGEROUS OBJECT
-    # =====================================================
+    closest = None
  
     if nearby_detections:
  
-        closest = max(nearby_detections, key=threat_score)
+        # Vehicles get priority, then the highest threat score
+        closest = max(nearby_detections, key=priority_key)
  
         safe_direction = get_safe_direction(nearby_detections)
  
         navigation_data["closest"] = closest
  
-        navigation_data["others"] = [
-            item for item in nearby_detections if item is not closest
-        ]
- 
-        # ---------------- TRAFFIC LIGHT ----------------
+        navigation_data["others"] = sorted(
+            [item for item in nearby_detections if item is not closest],
+            key=priority_key,
+            reverse=True
+        )
  
         if closest["name"] == "traffic light":
  
@@ -619,31 +691,22 @@ def process_frame(frame):
                     "TRAFFIC LIGHT DETECTED - COLOR UNCLEAR"
                 )
  
-        # ---------------- NORMAL OBJECT ----------------
- 
         else:
  
             position = closest["position"]
-            distance = closest["distance"]
             object_name = closest["name"]
+            motion = motion_text(closest)
  
             navigation_data["path"] = "OBSTACLE CLOSE"
  
-            if position == "Center":
-                description = (
-                    f"STOP - {object_name} is approximately "
-                    f"{distance} meters ahead"
-                )
+            if motion:
+                description = f"WARNING - {object_name} {motion}"
+            elif position == "Center":
+                description = f"STOP - {object_name} ahead"
             elif position == "Left":
-                description = (
-                    f"OBJECT ON LEFT - {object_name} is approximately "
-                    f"{distance} meters away"
-                )
+                description = f"OBJECT ON LEFT - {object_name}"
             else:
-                description = (
-                    f"OBJECT ON RIGHT - {object_name} is approximately "
-                    f"{distance} meters away"
-                )
+                description = f"OBJECT ON RIGHT - {object_name}"
  
             if safe_direction == "Left":
                 description += " | SAFE PATH: LEFT"
@@ -655,10 +718,6 @@ def process_frame(frame):
                 description += " | SAFE PATH: STRAIGHT"
  
             navigation_data["description"] = description
- 
-    # =====================================================
-    # NO OBJECT
-    # =====================================================
  
     else:
  
@@ -678,16 +737,13 @@ def process_frame(frame):
     navigation_data["safe_direction"] = safe_direction
     navigation_data["detections"] = detections
  
-    # =====================================================
-    # PRIORITY VOICE MESSAGE (sirf sabse khatarnak object)
-    # =====================================================
- 
+    # Voice message: only announce when something changed or after a repeat interval
     voice_message = ""
     current_time = time.monotonic()
  
     state = last_announced_at.setdefault(
         "STATE",
-        {"key": None, "distance": None, "time": 0.0}
+        {"key": None, "time": 0.0}
     )
  
     if nearby_detections:
@@ -698,28 +754,21 @@ def process_frame(frame):
             top["name"],
             top["position"],
             safe_direction,
-            top.get("traffic_light_color")
+            top.get("traffic_light_color"),
+            top.get("motion"),
         )
  
         changed = key != state["key"]
- 
-        dist_changed = (
-            state["distance"] is None
-            or abs(top["distance"] - state["distance"])
-            >= DISTANCE_CHANGE_THRESHOLD
-        )
  
         repeat = (
             current_time - state["time"] >= ANNOUNCEMENT_REPEAT_SECONDS
         )
  
-        if changed or dist_changed or repeat:
-            voice_message = make_voice_message(top, safe_direction)
-            state.update(
-                key=key,
-                distance=top["distance"],
-                time=current_time
+        if changed or repeat:
+            voice_message = make_voice_message(
+                top, safe_direction, navigation_data["others"]
             )
+            state.update(key=key, time=current_time)
  
     else:
  
@@ -728,7 +777,7 @@ def process_frame(frame):
             or current_time - state["time"] >= ANNOUNCEMENT_REPEAT_SECONDS
         ):
             voice_message = "Path is clear. You can continue straight."
-            state.update(key="CLEAR", distance=None, time=current_time)
+            state.update(key="CLEAR", time=current_time)
  
     print(
         "FINAL VOICE MESSAGE:",
@@ -736,11 +785,6 @@ def process_frame(frame):
     )
  
     navigation_data["voice_message"] = voice_message
- 
-    # =====================================================
-    # ENCODE PROCESSED FRAME
-    # =====================================================
- 
     navigation_data["annotated_frame"] = None
  
     annotated_frame = encode_frame(frame)
@@ -749,7 +793,7 @@ def process_frame(frame):
  
  
 # =========================================================
-# PROCESS MOBILE CAMERA FRAME
+# API ROUTES
 # =========================================================
  
 @app.route("/api/process_frame", methods=["POST"])
@@ -769,7 +813,7 @@ def process_mobile_frame():
         if frame is None:
             return jsonify({"error": "Could not decode frame"}), 400
  
-        # Ek saath kai requests aayein to line se process hon
+        # If several requests arrive together, process them one by one
         with frame_lock:
             processed_frame, annotated_frame, voice_message = process_frame(frame)
             response_data = dict(navigation_data)
@@ -791,18 +835,10 @@ def process_mobile_frame():
         return jsonify({"error": str(error)}), 500
  
  
-# =========================================================
-# NAVIGATION DATA
-# =========================================================
- 
 @app.route("/api/navigation_data")
 def get_navigation_data():
     return jsonify(navigation_data)
  
- 
-# =========================================================
-# HEALTH CHECK
-# =========================================================
  
 @app.route("/")
 def home():
@@ -821,16 +857,14 @@ def home():
  
 if __name__ == "__main__":
  
-    # voice_assistance.py bhi 5000 pe hai: dono ek saath chalani hon to
-    # yahan PORT badal do (jaise 5001) aur Node mein bhi wahi port rakho.
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000)),
         debug=False,
         threaded=True,
         ssl_context=(
-            r"C:\mkcert\172.22.55.165+2.pem",
-            r"C:\mkcert\172.22.55.165+2-key.pem"
+            r"C:\mkcert\10.76.182.165+2.pem",
+            r"C:\mkcert\10.76.182.165+2-key.pem"
         )
     )
  

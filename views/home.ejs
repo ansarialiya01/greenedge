@@ -97,6 +97,48 @@
         </main>
 
     </div>
+    <% if (typeof isNewUser !== "undefined" && isNewUser) { %>
+    <script>
+    (function () {
+    function speak(text) {
+        var u = new SpeechSynthesisUtterance(text);
+        u.lang = "en-IN";
+        speechSynthesis.cancel();
+        speechSynthesis.speak(u);
+    }
+
+    fetch("/api/voice-command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+        event: "welcome",
+        is_new_user: true,
+        current_page: "/home",
+        is_active: true
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+        if (!data.message) return;
+
+        speak(data.message);
+
+        // Chrome may block speech before the first tap on the page.
+        // If so, speak on the first tap instead.
+        var started = false;
+        var probe = new SpeechSynthesisUtterance("");
+        setTimeout(function () {
+            if (!speechSynthesis.speaking && !started) {
+            document.addEventListener("pointerdown", function once() {
+                speak(data.message);
+                document.removeEventListener("pointerdown", once);
+            });
+            }
+        }, 1500);
+        });
+    })();
+    </script>
+    <% } %>
 
 </body>
 </html> 
