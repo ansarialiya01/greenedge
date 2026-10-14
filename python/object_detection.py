@@ -65,7 +65,7 @@ MIN_DETECTION_CONFIDENCE = 0.25
 ALERT_DISTANCE = 2.0
  
 # Vehicles move fast, so they are detected from farther away
-VEHICLE_ALERT_DISTANCE = 4.0
+VEHICLE_ALERT_DISTANCE = 5.0
  
 # Pothole settings
 POTHOLE_MAX_DISTANCE = 2.0
@@ -121,6 +121,10 @@ LATERAL_SHIFT = 0.04       # moved sideways by more than 4% of frame width
 # Voice settings
 ANNOUNCEMENT_REPEAT_SECONDS = 3.0
  
+# True = also say "Go left." / "Go right." after the object message.
+# "Stop." is always said when there is no safe path.
+SPEAK_PATH_ADVICE = False
+ 
 # =========================================================
 # STATE
 # =========================================================
@@ -147,9 +151,10 @@ frame_counter = 0
 cached_potholes = []
 prev_tracks = []
  
-SIDE_TEXT = {
-    "Left": "on your left",
-    "Right": "on your right",
+# Short position words used in voice messages
+POSITION_SHORT = {
+    "Left": "on left",
+    "Right": "on right",
     "Center": "ahead",
 }
  
@@ -304,22 +309,18 @@ def update_motion(detections, now, frame_width):
  
  
 def motion_text(item):
+    """Short motion phrase: 'moving left', 'moving right', 'coming'."""
  
     motion = item.get("motion")
-    position = item.get("position", "Center")
  
     if motion == "approaching":
-        return {
-            "Center": "coming straight towards you",
-            "Left": "coming from your left",
-            "Right": "coming from your right",
-        }.get(position, "coming towards you")
+        return "coming"
  
     if motion == "left_to_right":
-        return "moving from left to right"
+        return "moving right"
  
     if motion == "right_to_left":
-        return "moving from right to left"
+        return "moving left"
  
     return ""
  
@@ -368,7 +369,9 @@ def detect_traffic_light_color(crop):
  
  
 # =========================================================
-# VOICE MESSAGE
+# VOICE MESSAGE (short)
+# Examples: "Car moving left." / "Car coming." / "Person ahead." /
+#           "Red light. Stop."
 # =========================================================
  
 def make_voice_message(item, safe_direction="Straight", others=None):
@@ -377,50 +380,32 @@ def make_voice_message(item, safe_direction="Straight", others=None):
         return ""
  
     name = item.get("name", "")
-    position = item.get("position", "Center")
  
     if not name or name == "None":
         return ""
  
-    direction = SIDE_TEXT.get(position, "ahead")
- 
     if name == "traffic light":
  
-        color = item.get("traffic_light_color")
- 
         return {
-            "Red": f"Red traffic light {direction}. Please stop.",
-            "Yellow": f"Yellow traffic light {direction}. Please wait.",
-            "Green": f"Green traffic light {direction}. Check traffic before crossing.",
-        }.get(color, f"Traffic light {direction}. Color is unclear.")
+            "Red": "Red light. Stop.",
+            "Yellow": "Yellow light. Wait.",
+            "Green": "Green light.",
+        }.get(item.get("traffic_light_color"), "Traffic light.")
  
     object_name = name.replace("_", " ").capitalize()
- 
-    prefix = "Warning! " if name in MOVING_OBJECTS else ""
  
     motion = motion_text(item)
  
     if motion:
-        message = f"{prefix}{object_name} {motion}. "
+        message = f"{object_name} {motion}."
     else:
-        message = f"{prefix}{object_name} {direction}. "
+        position = POSITION_SHORT.get(item.get("position"), "ahead")
+        message = f"{object_name} {position}."
  
-    if safe_direction == "Left":
-        message += "Move left."
-    elif safe_direction == "Right":
-        message += "Move right."
-    elif safe_direction == "Stop":
-        message += "No safe path. Please stop."
-    else:
-        message += "You can continue straight."
- 
-    # Mention one more object if there is one
-    if others:
-        other = others[0]
-        if other["name"] != "traffic light":
-            other_name = other["name"].replace("_", " ")
-            other_side = SIDE_TEXT.get(other["position"], "ahead")
-            message += f" Also {other_name} {other_side}."
+    if safe_direction == "Stop":
+        message += " Stop."
+    elif SPEAK_PATH_ADVICE and safe_direction in ("Left", "Right"):
+        message += f" Go {safe_direction.lower()}."
  
     return message
  
@@ -772,11 +757,9 @@ def process_frame(frame):
  
     else:
  
-        if (
-            state["key"] != "CLEAR"
-            or current_time - state["time"] >= ANNOUNCEMENT_REPEAT_SECONDS
-        ):
-            voice_message = "Path is clear. You can continue straight."
+        # "Path clear." is said only once, not every few seconds
+        if state["key"] != "CLEAR":
+            voice_message = "Path clear."
             state.update(key="CLEAR", time=current_time)
  
     print(
