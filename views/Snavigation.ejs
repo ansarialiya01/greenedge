@@ -1182,6 +1182,35 @@ async function startCamera() {
 
 
 /* =========================================================
+   VOICE ASSISTANT SE CAMERA START
+   "navigation camera" / "open camera" bolne par
+   voice_assistance.js is function ko call karta hai
+   ========================================================= */
+
+window.startNavigationCamera = function () {
+
+    // Camera pehle se chal raha hai ya abhi start ho raha hai
+    if (
+        mobileStream ||
+        startCameraButton.disabled
+    ) {
+
+        console.log(
+            "📷 Camera already running or starting"
+        );
+
+        return;
+    }
+
+    console.log(
+        "🎤 VOICE COMMAND -> START CAMERA"
+    );
+
+    startCamera();
+};
+
+
+/* =========================================================
    VIDEO EVENTS
    ========================================================= */
 

@@ -113,6 +113,134 @@
  
  
     // =====================================================
+    // HOME MENU: say 1-5 to open that page directly
+    // (browser par hi check hota hai, Python tak jaane ki zarurat nahi)
+    // =====================================================
+ 
+    const HOME_MENU_PAGES = {
+        1: { url: "/Snavigation?camera=true", say: "Navigation." },
+        2: { url: "/documentR?camera=true",   say: "Document reader." },
+        3: { url: "/location",    say: "Location." },
+        4: { url: "/sos",         say: "SOS." },
+        5: { url: "/setting",     say: "Settings." }
+    };
+ 
+    // Spoken words (English, Hindi, common mis-hearings) -> number
+    const SPOKEN_MENU_NUMBERS = {
+        one: 1, won: 1, wan: 1, ek: 1,
+        two: 2, to: 2, too: 2, tu: 2, do: 2,
+        three: 3, tree: 3, free: 3, teen: 3, tin: 3,
+        four: 4, for: 4, fore: 4, char: 4, chaar: 4,
+        five: 5, fife: 5, panch: 5, paanch: 5
+    };
+ 
+    const MENU_FILLER_WORDS = [
+        "number", "option", "press", "select", "choose",
+        "open", "please", "say", "card", "menu", "tap", "go"
+    ];
+ 
+    function spokenMenuNumber(text) {
+ 
+        const words = String(text || "")
+            .toLowerCase()
+            .replace(/[^\w\s]/g, " ")
+            .split(/\s+/)
+            .filter(Boolean)
+            .filter(w => !MENU_FILLER_WORDS.includes(w));
+ 
+        // Sirf ek number word hona chahiye, taaki "go to settings" ko 2 na samjhe
+        if (words.length !== 1) return null;
+ 
+        const w = words[0];
+ 
+        if (/^[1-5]$/.test(w)) return Number(w);
+ 
+        return SPOKEN_MENU_NUMBERS[w] || null;
+    }
+ 
+    function isHomePage() {
+        return window.location.pathname.replace(/\/$/, "") === "/home";
+    }
+ 
+    // "back", "go back", "wapas", "peeche" etc.
+    function isGoBackCommand(text) {
+ 
+        const t = String(text || "")
+            .toLowerCase()
+            .replace(/[^\w\s]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+ 
+        return (
+            /^(please )?(go )?back$/.test(t) ||
+            /\b(go|come|take me|move) back\b/.test(t) ||
+            /\b(wapas|vapas|peeche|piche|previous)\b/.test(t)
+        );
+    }
+ 
+    // Contacts change page par hain ya nahi
+    // (path ya contact-flow ke step se pata chalta hai, taaki URL alag ho to bhi chale)
+    function isGuardianPage() {
+ 
+        const path = window.location.pathname
+            .replace(/\/$/, "")
+            .toLowerCase();
+ 
+        const step = String((sessionState && sessionState.step) || "");
+ 
+        return (
+            path === GUARDIAN_PAGE ||
+            /guardian|emergency|contact/.test(path) ||
+            step.startsWith("ec_")
+        );
+    }
+ 
+ 
+    // "change emergency contact", "change contact", "change guardian number" etc.
+    function isChangeContactCommand(text) {
+ 
+        const t = String(text || "")
+            .toLowerCase()
+            .replace(/[^\w\s]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+ 
+        return /\bchange\b.*\b(emergency|guardian|contact|contacts|number|numbers)\b/.test(t);
+    }
+ 
+ 
+    // =====================================================
+    // DOCUMENT READER PAGE: "read document" browser par hi pakdo
+    // (Python tak jaane ki zarurat nahi, isliye 1 baar bolne par kaam karega)
+    // =====================================================
+ 
+    function isDocumentPage() {
+        return (
+            window.location.pathname
+                .replace(/\/$/, "")
+                .toLowerCase() === "/documentr"
+        );
+    }
+ 
+    function isReadDocumentCommand(text) {
+ 
+        const t = String(text || "")
+            .toLowerCase()
+            .replace(/[^\w\s]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+ 
+        if (!t) return false;
+ 
+        return (
+            /\b(read|red|reed)\b.*\b(document|doc|documents|it|text|aloud|this)\b/.test(t) ||
+            /^(read|red|reed)$/.test(t) ||
+            /\bpadho\b|\bpadh do\b|\bpad do\b/.test(t)
+        );
+    }
+ 
+ 
+    // =====================================================
     // SPEECH RECOGNITION
     // =====================================================
  
@@ -123,7 +251,10 @@
         recognition.lang = "en-IN";
         recognition.continuous = false;
         recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
+ 
+        // Kai options milte hain, taaki "1" jaise chhote bol ke liye
+        // koi bhi sahi option mil jaye
+        recognition.maxAlternatives = 3;
  
  
         recognition.onstart = () => {
@@ -207,8 +338,37 @@
  
                 if (!event.results[i].isFinal) continue;
  
-                const transcript =
-                    event.results[i][0].transcript.trim();
+                const result = event.results[i];
+ 
+                let transcript = result[0].transcript.trim();
+ 
+                // Home page par: agar koi bhi option menu number hai to wahi lo
+                if (isHomePage()) {
+ 
+                    for (let a = 0; a < result.length; a++) {
+ 
+                        const alt = result[a].transcript.trim();
+ 
+                        if (spokenMenuNumber(alt)) {
+                            transcript = alt;
+                            break;
+                        }
+                    }
+                }
+ 
+                // Document page par: koi bhi option "read document" jaisa ho to wahi lo
+                if (isDocumentPage()) {
+ 
+                    for (let a = 0; a < result.length; a++) {
+ 
+                        const alt = result[a].transcript.trim();
+ 
+                        if (isReadDocumentCommand(alt)) {
+                            transcript = alt;
+                            break;
+                        }
+                    }
+                }
  
                 if (!transcript) continue;
  
@@ -254,11 +414,12 @@
  
     // =====================================================
     // DOCUMENT READING MODE
+    // (assistant ko sula do / jaga do)
     // =====================================================
  
-    window.startDocumentReading = function () {
+    window.startDocumentReading = function (message) {
  
-        console.log("📖 Document reading started.");
+        console.log("📖 Document mode: assistant sleeping.");
  
         isDocumentReading = true;
  
@@ -271,6 +432,7 @@
         updateIndicator(false);
  
         setStatus(
+            message ||
             "🔇 Voice assistant sleeping while document is being read."
         );
     };
@@ -278,28 +440,35 @@
  
     window.endDocumentReading = function () {
  
-        console.log("📖 Document reading finished.");
+        console.log("📖 Document mode finished: assistant waking up.");
  
         isDocumentReading = false;
  
-        setStatus(
-            "🎤 Voice assistant active again."
-        );
+        setStatus("🎤 Listening... say your command");
  
         updateIndicator(false);
  
-        // Thoda delay, phir mic restart
-        setTimeout(() => {
+        // Mic turant start karo. Agar abort() abhi poora na hua ho to
+        // start() fail ho sakta hai, isliye kuch baar retry.
+        const tryStart = (attempt) => {
  
             if (
-                !micBlocked &&
-                !isSpeaking &&
-                !isDocumentReading
+                isDocumentReading ||
+                micBlocked ||
+                isSpeaking ||
+                isListening
             ) {
-                startListening();
+                return;
             }
  
-        }, 500);
+            startListening();
+ 
+            if (attempt < 4) {
+                setTimeout(() => tryStart(attempt + 1), 300);
+            }
+        };
+ 
+        setTimeout(() => tryStart(0), 50);
     };
  
  
@@ -390,6 +559,87 @@
     // =====================================================
  
     async function handleCommand(commandText) {
+ 
+        console.log(
+            "[assistant] command:", commandText,
+            "| page:", window.location.pathname,
+            "| step:", sessionState && sessionState.step
+        );
+ 
+        // Home page: menu number bolne par seedha wo page khulta hai
+        if (isHomePage() && isAssistantActive) {
+ 
+            const n = spokenMenuNumber(commandText);
+ 
+            console.log("🔢 Home menu check:", commandText, "->", n);
+ 
+            if (n && HOME_MENU_PAGES[n]) {
+ 
+                const target = HOME_MENU_PAGES[n];
+ 
+                speak(
+                    target.say,
+                    () => { window.location.href = target.url; }
+                );
+ 
+                return;
+            }
+        }
+ 
+ 
+        // Emergency contacts page: "back" bolne par seedha Home (Settings nahi)
+        if (isGuardianPage() && isGoBackCommand(commandText)) {
+ 
+            console.log("⬅️ Back from contacts page -> Home");
+ 
+            sessionState = { step: "idle" };
+ 
+            setStatus("⬅️ Going to Home...");
+ 
+            speak(
+                "Home.",
+                () => { window.location.href = "/home"; }
+            );
+ 
+            return;
+        }
+ 
+ 
+        // Home page: "change emergency contact" seedha contacts page kholta hai
+        if (
+            isHomePage() &&
+            isAssistantActive &&
+            isChangeContactCommand(commandText)
+        ) {
+ 
+            console.log("📞 Change emergency contact:", commandText);
+ 
+            speak(
+                "Emergency contacts.",
+                () => { window.location.href = GUARDIAN_PAGE; }
+            );
+ 
+            return;
+        }
+ 
+ 
+        // Document page: "read document" seedha Read Aloud button dabata hai
+        if (
+            isDocumentPage() &&
+            isAssistantActive &&
+            isReadDocumentCommand(commandText)
+        ) {
+ 
+            const readBtn = document.getElementById("readAloudBtn");
+ 
+            console.log("📖 Read document command:", commandText);
+ 
+            if (readBtn) {
+                readBtn.click();
+                return;
+            }
+        }
+ 
  
         try {
  
@@ -490,7 +740,7 @@
  
             setStatus("❌ Cannot reach server: " + err.message);
  
-            speak("Network error. Cannot reach assistant.");
+            speak("Network error.");
         }
     }
  
@@ -725,7 +975,7 @@
  
                     speak(
                         info.message ||
-                        "Emergency contact not found."
+                        "Contact not found."
                     );
  
                     return;
@@ -752,7 +1002,7 @@
                         contacts.map(c => c.name).join(" or ");
  
                     speak(
-                        `I could not find ${data.name}. You can call ${names}.`
+                        `No ${data.name}. Try ${names}.`
                     );
  
                     return;
@@ -761,13 +1011,13 @@
  
                 number = match.phone;
  
-                label = match.name || "your emergency contact";
+                label = match.name || "your contact";
  
             } catch (err) {
  
                 console.error("Emergency contact error:", err);
  
-                speak("I could not get your contacts.");
+                speak("Could not get contacts.");
  
                 return;
             }
@@ -781,7 +1031,7 @@
  
  
         speak(
-            `Calling ${label}. Tap the green call button if the call does not start.`,
+            `Calling ${label}.`,
             () => {
                 window.location.href = "tel:" + number;
             }
@@ -803,7 +1053,7 @@
             const form = document.querySelector("form");
  
             if (form) {
-                speak("Creating your account.", () => form.submit());
+                speak("Creating account.", () => form.submit());
             }
  
             return;
@@ -815,7 +1065,7 @@
             contacts.length !== 2
         ) {
  
-            speak("Please complete both emergency contacts first.");
+            speak("Add both contacts first.");
  
             return;
         }
@@ -851,7 +1101,7 @@
  
                 speak(
                     data.message ||
-                    "I could not save your emergency contacts."
+                    "Could not save contacts."
                 );
  
                 return;
@@ -860,7 +1110,7 @@
  
             // Save ho gaya: seedha home page
             speak(
-                "Your emergency contacts have been saved. Going to home.",
+                "Contacts saved.",
                 () => {
                     window.location.href = "/home";
                 }
@@ -878,7 +1128,64 @@
  
             console.error("Save emergency contacts error:", error);
  
-            speak("I could not save your emergency contacts.");
+            speak("Could not save contacts.");
+        }
+    }
+ 
+ 
+    // =====================================================
+    // SOS
+    // "emergency" bolne par SOS page khulta hai aur SOS khud trigger hota hai
+    // =====================================================
+ 
+    function callTriggerSOS(tries = 0) {
+ 
+        if (typeof window.triggerSOS === "function") {
+ 
+            window.triggerSOS();
+ 
+        } else if (tries < 20) {
+ 
+            // SOS page ka script abhi load ho raha ho sakta hai
+            setTimeout(() => callTriggerSOS(tries + 1), 250);
+        }
+    }
+ 
+ 
+    function runSOS() {
+ 
+        if (window.location.pathname === "/sos") {
+ 
+            callTriggerSOS();
+ 
+        } else {
+ 
+            sessionStorage.setItem("pending_sos", "true");
+ 
+            window.location.href = "/sos";
+        }
+    }
+ 
+ 
+    // =====================================================
+    // NAVIGATION CAMERA
+    // "navigation camera" bolne par page khulta hai aur camera khud chalta hai
+    // =====================================================
+ 
+    function callStartNavigationCamera(tries = 0) {
+ 
+        if (typeof window.startNavigationCamera === "function") {
+ 
+            window.startNavigationCamera();
+ 
+        } else if (tries < 20) {
+ 
+            // Navigation page ka script abhi load ho raha ho sakta hai
+            setTimeout(() => callStartNavigationCamera(tries + 1), 250);
+ 
+        } else {
+ 
+            console.error("Navigation camera function not found.");
         }
     }
  
@@ -924,7 +1231,12 @@
  
             case "history_back":
  
-                window.history.back();
+                // Contacts page se back hamesha Home par jaye
+                if (isGuardianPage()) {
+                    window.location.href = "/home";
+                } else {
+                    window.history.back();
+                }
  
                 break;
  
@@ -948,12 +1260,18 @@
  
                 break;
  
+ 
+            case "trigger_sos":
+ 
+                runSOS();
+ 
+                break;
+ 
+ 
             case "start_navigation_camera":
-                if (typeof window.startNavigationCamera === "function") {
-                    window.startNavigationCamera();
-                } else {
-                    console.error("Navigation camera function not found.");
-                }
+ 
+                callStartNavigationCamera();
+ 
                 break;
  
  
@@ -1147,7 +1465,6 @@
  
                 message =
                     `Welcome back${userName ? ", " + userName : ""}. ` +
-                    "Do you want to continue or create a new account? " +
                     "Say continue or new account.";
  
             } else {
@@ -1155,7 +1472,7 @@
                 sessionState = { step: "ask_name" };
  
                 message =
-                    `${errorText}Welcome to GreenEdge. You are a new user. Please say your name.`;
+                    `${errorText}Welcome to GreenEdge. Your name?`;
             }
  
  
@@ -1184,24 +1501,39 @@
             sessionStorage.setItem("voice_assistant_active", "true");
  
  
-            speak(
-                "Change emergency contacts. " +
-                "Please say the name of your first emergency contact."
-            );
+            speak("Contacts. First contact name?");
  
  
             return true;
         }
  
  
+        // Home page: speak the number menu
+        if (path === "/home") {
+ 
+            isAssistantActive = true;
+ 
+            sessionStorage.setItem("voice_assistant_active", "true");
+ 
+            sessionState = { step: "idle" };
+ 
+            speak(
+                "Say option one for navigation. Option two for document reader. " +
+                "Option three for location. Option four for SOS. Option five for settings. " +
+                "To change emergency contact, say change contact."
+            );
+ 
+            return true;
+        }
+ 
+ 
         const pageNames = {
-            "/home": "Home dashboard",
-            "/setting": "App Settings",
-            "/Snavigation": "Smart Navigation",
-            "/documentR": "Document Reader",
-            "/documentS": "Document Summary",
-            "/profile": "User Profile",
-            "/sos": "Emergency SOS"
+            "/setting": "Settings",
+            "/documentR": "Document reader",
+            "/Snavigation": "Navigation",
+            "/documentS": "Document summary",
+            "/profile": "Profile",
+            "/sos": "SOS"
         };
  
  
@@ -1232,6 +1564,67 @@
  
             initRecognition();
  
+            console.log("[assistant] voice_assistance.js v4 loaded on", window.location.pathname);
+ 
+ 
+            // Contacts page par kisi bhi tarah ka "back" (voice, page ka button,
+            // phone ka back button, history.back()) seedha Home par jaye
+            const guardianPath = window.location.pathname
+                .replace(/\/$/, "")
+                .toLowerCase();
+ 
+            if (
+                guardianPath === GUARDIAN_PAGE ||
+                /guardian|emergency|contact/.test(guardianPath)
+            ) {
+ 
+                // Ek extra history entry: back dabate hi ye hat jayegi aur popstate chalega
+                history.pushState({ guardianTrap: true }, "", window.location.href);
+ 
+                window.addEventListener("popstate", () => {
+                    window.location.replace("/home");
+                });
+ 
+                // Page ke apne Back button (id="backBtn") ko bhi Home par bhejo
+                document.addEventListener(
+                    "click",
+                    (e) => {
+ 
+                        const back = e.target.closest && e.target.closest("#backBtn");
+ 
+                        if (back) {
+                            e.preventDefault();
+                            e.stopImmediatePropagation();
+                            window.location.replace("/home");
+                        }
+                    },
+                    true
+                );
+            }
+ 
+ 
+            // "emergency" bolne ke baad SOS page khula hai: SOS trigger karo
+            if (
+                window.location.pathname === "/sos" &&
+                sessionStorage.getItem("pending_sos") === "true"
+            ) {
+ 
+                sessionStorage.removeItem("pending_sos");
+ 
+                callTriggerSOS();
+            }
+ 
+ 
+            // "navigation camera" bolne ke baad navigation page khula hai:
+            // camera shuru karo
+            if (
+                window.location.pathname.replace(/\/$/, "").toLowerCase() === "/snavigation" &&
+                new URLSearchParams(window.location.search).get("camera") === "true"
+            ) {
+ 
+                callStartNavigationCamera();
+            }
+ 
  
             // Emergency contacts page par step set karo
             if (window.location.pathname === GUARDIAN_PAGE) {
@@ -1246,7 +1639,7 @@
  
             const unlockAudio = () => {
  
-                if (!isSpeaking) {
+                if (!isSpeaking && !isDocumentReading) {
  
                     if (!announceScreen()) {
                         startListening();
