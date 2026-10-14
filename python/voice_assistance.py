@@ -13,7 +13,7 @@ CORS(app)
  
 def contains_any(command, phrases):
     """True if the command contains any of the phrases as whole words."""
-    clean = f" {re.sub(r'[^\w\s]', ' ', command.lower())} "
+    clean = re.sub(r'[^\w\s]', ' ', command.lower())
     clean = " ".join(clean.split())
  
     for phrase in phrases:
