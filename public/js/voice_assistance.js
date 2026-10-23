@@ -118,11 +118,11 @@
     // =====================================================
  
     const HOME_MENU_PAGES = {
-        1: { url: "/Snavigation?camera=true", say: "Navigation." },
-        2: { url: "/documentR?camera=true",   say: "Document reader." },
-        3: { url: "/location",    say: "Location." },
-        4: { url: "/sos",         say: "SOS." },
-        5: { url: "/setting",     say: "Settings." }
+        1: { url: "/Snavigation?camera=true", say: "opening Navigation." },
+        2: { url: "/documentR?camera=true",   say: "opening Document reader." },
+        3: { url: "/location",    say: "opening Location." },
+        4: { url: "/sos",         say: "opening SOS." },
+        5: { url: "/setting",     say: "opening Settings." }
     };
  
     // Spoken words (English, Hindi, common mis-hearings) -> number
@@ -343,7 +343,7 @@
                 let transcript = result[0].transcript.trim();
  
                 // Home page par: agar koi bhi option menu number hai to wahi lo
-                if (isHomePage()) {
+                if (isHomePage() && sessionState.step !== "awaiting_destination") {
  
                     for (let a = 0; a < result.length; a++) {
  
@@ -567,13 +567,19 @@
         );
  
         // Home page: menu number bolne par seedha wo page khulta hai
-        if (isHomePage() && isAssistantActive) {
+        if (isHomePage() && isAssistantActive && sessionStorage.step !== "awaiting_destination") {
  
             const n = spokenMenuNumber(commandText);
  
             console.log("🔢 Home menu check:", commandText, "->", n);
  
             if (n && HOME_MENU_PAGES[n]) {
+
+                if (n === 3 && IS_MOBILE) {
+                    sessionState = { step: "awaiting_destination" };
+                    speak("Opening location. Where to?");
+                    return;
+                }
  
                 const target = HOME_MENU_PAGES[n];
  

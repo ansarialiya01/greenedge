@@ -396,11 +396,11 @@ HOME_MENU_TEXT = (
 )
  
 HOME_MENU = {
-    "1": ("/Snavigation?camera=true", "Navigation."),
-    "2": ("/documentR?camera=true", "Document reader."),
-    "3": ("/location", "Location."),
-    "4": ("/sos", "SOS."),
-    "5": ("/setting", "Settings."),
+    "1": ("/Snavigation?camera=true", "Opening Navigation."),
+    "2": ("/documentR?camera=true", "Opening Document reader."),
+    "3": ("/location", "Opening Location. Where to?"),
+    "4": ("/sos", "Opening SOS."),
+    "5": ("/setting", "Opening Settings."),
 }
  
  
@@ -1204,6 +1204,18 @@ def process_voice():
         choice = menu_choice(cmd)
  
         if choice:
+
+            if choice == "3" and is_mobile:
+
+                session_state["step"] = "awaiting_destination"
+
+                return jsonify({
+                    "success": True,
+                    "action": "speak_and_listen",
+                    "message": "Where to?",
+                    "session_state": session_state,
+                    "is_active": True
+                })
  
             session_state["step"] = "idle"
  
