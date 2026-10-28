@@ -26,16 +26,17 @@ DEBUG_RAW = True
  
 model = YOLO("yolov8s.pt")
  
-# Optional pothole model. If pothole.pt is not in this folder,
-# the server runs without pothole detection.
-POTHOLE_MODEL_PATH = os.path.join(BASE_DIR, "pothole.pt")
+# Optional pothole model (2 classes: 0 = pothole, 1 = speed_breaker).
+# If the file is not in this folder, the server runs without pothole detection.
+POTHOLE_MODEL_PATH = os.path.join(BASE_DIR, "pothole_sb_backup.pt")
 pothole_model = None
  
 if os.path.exists(POTHOLE_MODEL_PATH):
     pothole_model = YOLO(POTHOLE_MODEL_PATH)
     print("Pothole model loaded")
+    print("Pothole model classes:", pothole_model.names)
 else:
-    print("pothole.pt not found - pothole detection OFF")
+    print("pothole_sb_backup.pt not found - pothole detection OFF")
  
 # =========================================================
 # SETTINGS
@@ -69,8 +70,12 @@ VEHICLE_ALERT_DISTANCE = 5.0
  
 # Pothole settings
 POTHOLE_MAX_DISTANCE = 2.0
-POTHOLE_CONFIDENCE = 0.35
+POTHOLE_CONFIDENCE = 0.5        # higher = fewer false alerts (was 0.35)
+POTHOLE_IOU = 0.4               # avoids several boxes on one pothole
 POTHOLE_EVERY_N_FRAMES = 2
+POTHOLE_CLASS_ID = 0            # class 0 = pothole, class 1 = speed_breaker (ignored)
+POTHOLE_MAX_BOX_AREA = 0.35     # a box bigger than this is usually a false detection
+POTHOLE_MIN_CENTER_Y = 0.5      # only the lower half of the frame (user's walking path)
  
 # Real object width in meters, used for distance estimation
 OBJECT_REAL_WIDTH = {
@@ -433,21 +438,44 @@ def encode_frame(frame):
 # =========================================================
  
 def detect_potholes(frame, frame_width):
+    """
+    Runs the pothole model on a CLEAN frame (no boxes drawn on it).
+    Only class 0 (pothole) is used. Class 1 (speed_breaker) is ignored,
+    because the model is not reliable on it yet.
+    """
  
     found = []
  
     if pothole_model is None:
         return found
  
+    frame_height = frame.shape[0]
+ 
     result = pothole_model(
         frame,
         verbose=False,
-        conf=POTHOLE_CONFIDENCE
+        conf=POTHOLE_CONFIDENCE,
+        iou=POTHOLE_IOU
     )[0]
  
     for box in result.boxes:
  
+        if int(box.cls[0]) != POTHOLE_CLASS_ID:
+            continue
+ 
         x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+ 
+        w = (x2 - x1) / frame_width
+        h = (y2 - y1) / frame_height
+        center_y = ((y1 + y2) / 2) / frame_height
+ 
+        # Very large box = almost always a false detection
+        if w * h > POTHOLE_MAX_BOX_AREA or w > 0.8:
+            continue
+ 
+        # Ignore the upper part of the frame (far away / not on the path)
+        if center_y < POTHOLE_MIN_CENTER_Y:
+            continue
  
         distance = estimate_distance(
             "pothole",
@@ -507,6 +535,10 @@ def process_frame(frame):
     global last_announced_at
     global frame_counter
     global cached_potholes
+ 
+    # Keep a clean copy BEFORE any boxes are drawn.
+    # The pothole model must see the real road, not our drawings.
+    clean_frame = frame.copy() if pothole_model is not None else None
  
     results = model(
         frame,
@@ -623,7 +655,7 @@ def process_frame(frame):
  
     if pothole_model is not None:
         if frame_counter % POTHOLE_EVERY_N_FRAMES == 0:
-            cached_potholes = detect_potholes(frame, frame_width)
+            cached_potholes = detect_potholes(clean_frame, frame_width)
  
         for p in cached_potholes:
             draw_pothole(frame, p)
@@ -850,4 +882,3 @@ if __name__ == "__main__":
             r"C:\mkcert\10.76.182.165+2-key.pem"
         )
     )
- 

@@ -1,15 +1,23 @@
-FROM node:22-slim
+FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y python3 python3-venv && rm -rf /var/lib/apt/lists/*
+ENV PYTHONUNBUFFERED=1 \
+    YOLO_CONFIG_DIR=/tmp/Ultralytics
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --omit=dev
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
-RUN python3 -m venv /venv && /venv/bin/pip install --no-cache-dir flask flask-cors
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
-RUN ls -la /app /app/database
+COPY object_detection.py .
 
-CMD ["sh", "-c", "/venv/bin/python python/voice_assistance.py & node server.js"]
+# Model build ke time hi download ho jaye
+RUN python -c "from ultralytics import YOLO; YOLO('yolov8s.pt')"
+
+# Agar pothole.pt upload ki hai to ye line rakho, warna hata do
+COPY pothole.pt* ./
+
+EXPOSE 7860
+
+CMD ["gunicorn", "-w", "1", "--threads", "4", "--timeout", "120", "-b", "0.0.0.0:7860", "object_detection:app"]
